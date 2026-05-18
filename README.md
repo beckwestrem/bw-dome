@@ -29,6 +29,8 @@ redistribute the code. See [`LICENSE`](LICENSE).
 
 The production web app lives in [`web/`](web/).
 
+Access the public web app at: [https://buffalo.up.railway.app/]
+
 It currently includes:
 
 - **LADWP EZ-SAVE bill checker**  
