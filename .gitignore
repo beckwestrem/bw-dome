@@ -1,0 +1,14 @@
+# Environment / secrets (keep *.example tracked)
+.env
+.env.*
+!.env.example
+
+# Local Python config (copy from config/accounts.example.yaml)
+config/accounts.yaml
+.venv/
+
+# Next.js app runtime data (uploads / SQLite / JSON store)
+web/data/
+
+# OS / editor
+.DS_Store

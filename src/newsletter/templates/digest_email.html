@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Account Insight Digest</title>
+    <style>
+      body { font-family: -apple-system, Segoe UI, Arial, sans-serif; color: #111; }
+      .card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+      .high { color: #b00020; font-weight: 600; }
+      .medium { color: #9c6b00; font-weight: 600; }
+      .low { color: #1b5e20; font-weight: 600; }
+      summary { cursor: pointer; font-weight: 600; }
+      .small { color: #666; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <h2>Account Insight Digest</h2>
+    <p class="small">Generated {{ digest.generated_at.strftime("%Y-%m-%d %H:%M") }}</p>
+
+    <div class="card">
+      <h3>Highlights</h3>
+      <ul>
+        {% for h in digest.highlights %}
+        <li>{{ h }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>Actionable Steps</h3>
+      {% for a in digest.actions %}
+      <details>
+        <summary>{{ a.title }} <span class="{{ a.priority }}">({{ a.priority }})</span></summary>
+        <p><strong>Why:</strong> {{ a.why }}</p>
+        <p><strong>Impact:</strong> {{ a.impact }}</p>
+        <p><strong>Next:</strong> {{ a.next_step }}</p>
+      </details>
+      {% endfor %}
+    </div>
+
+    <div class="card">
+      <h3>Account Snapshots</h3>
+      {% for s in digest.snapshots %}
+      <details>
+        <summary>{{ s.account_name }} ({{ s.account_type }}) - {{ s.currency }} {{ "%.2f"|format(s.balance) }}</summary>
+        {% if s.events %}
+          <ul>
+          {% for e in s.events %}
+            <li><strong>{{ e.title }}:</strong> {{ e.detail }}</li>
+          {% endfor %}
+          </ul>
+        {% else %}
+          <p>No notable events.</p>
+        {% endif %}
+      </details>
+      {% endfor %}
+    </div>
+  </body>
+ </html>

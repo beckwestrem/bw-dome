@@ -1,0 +1,14 @@
+{
+  "balance": 42500,
+  "currency": "USD",
+  "metadata": {
+    "allocation_drift_pct": 6.2
+  },
+  "events": [
+    {
+      "title": "Allocation drift",
+      "detail": "Equity exposure has drifted above target allocation.",
+      "severity": "info"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+owner_email: "you@example.com"
+sender_email: "you@example.com"
+send_times_local:
+  - "08:00"
+  - "18:00"
+
+# Start by wiring one connector at a time. Each connector can return balances,
+# transactions, and notable events for insight generation.
+accounts:
+  - id: "checking-main"
+    name: "Main Checking"
+    type: "bank"
+    connector: "csv_bank"
+    enabled: true
+    settings:
+      csv_path: "data/checking_transactions.csv"
+
+  - id: "brokerage-main"
+    name: "Brokerage"
+    type: "investment"
+    connector: "manual_snapshot"
+    enabled: true
+    settings:
+      snapshot_path: "data/brokerage_snapshot.json"
+
+  - id: "credit-main"
+    name: "Credit Card"
+    type: "credit"
+    connector: "manual_snapshot"
+    enabled: true
+    settings:
+      snapshot_path: "data/credit_snapshot.json"

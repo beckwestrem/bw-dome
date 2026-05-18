@@ -1,0 +1,14 @@
+{
+  "balance": -1840,
+  "currency": "USD",
+  "metadata": {
+    "utilization_pct": 42.5
+  },
+  "events": [
+    {
+      "title": "Statement due in 8 days",
+      "detail": "Minimum payment due soon.",
+      "severity": "warning"
+    }
+  ]
+}
