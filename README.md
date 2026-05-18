@@ -19,6 +19,8 @@ The goal is simple:
 
 ## License
 
+(this is only temporary, intended to be open source soon)
+
 This repository is currently published for visibility and review only. It is
 not open source and does not grant permission to fork, reuse, host, modify, or
 redistribute the code. See [`LICENSE`](LICENSE).
