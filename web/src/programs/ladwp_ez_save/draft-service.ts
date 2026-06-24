@@ -90,6 +90,8 @@ function valueForField(input: LadwpEzSaveInput, fieldKey: string): FieldValue {
       return input.firstName;
     case "last_name":
       return input.lastName;
+    case "middle_initial":
+      return input.middleInitial;
     case "service_address_street_number":
       return input.serviceAddressStreetNumber;
     case "service_address_street_name":

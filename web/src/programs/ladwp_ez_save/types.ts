@@ -39,6 +39,21 @@ export type LadwpEzSaveInput = {
   consentToContact?: boolean;
 };
 
+export type LadwpEzSaveBillExtractedField = {
+  fieldKey: keyof LadwpEzSaveInput;
+  value: string | number | boolean;
+  confidence: "high" | "medium" | "low";
+  source: "uploaded_bill" | "llm_extraction" | "local_text_extraction";
+  evidence?: string;
+};
+
+export type LadwpEzSaveBillExtractionResult = {
+  ok: boolean;
+  provider: "local_text" | "llm" | "none";
+  fields: LadwpEzSaveBillExtractedField[];
+  warnings: string[];
+};
+
 export type LadwpEzSaveEligibilityResult = {
   status: LadwpEzSaveEligibilityStatus;
   confidence: LadwpEzSaveConfidence;

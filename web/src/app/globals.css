@@ -1168,11 +1168,24 @@ label {
   line-height: 1.5;
 }
 
+.utility-landing__list {
+  max-width: 42rem;
+}
+
 .utility-card,
 .utility-result {
   display: grid;
   gap: 1.15rem;
   padding: 1.15rem;
+}
+
+.utility-form-intro {
+  display: grid;
+  gap: 0.65rem;
+  max-width: 48rem;
+  color: var(--muted);
+  font-size: 0.96rem;
+  line-height: 1.55;
 }
 
 .utility-form {
@@ -1212,6 +1225,15 @@ label {
 
 .utility-form input[type="file"] {
   padding: 0.5rem;
+}
+
+.utility-field-help {
+  max-width: 38rem;
+  font-size: 0.76rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.45;
+  text-transform: none;
 }
 
 .utility-programs {

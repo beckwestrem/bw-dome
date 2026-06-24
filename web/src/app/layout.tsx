@@ -1,13 +1,7 @@
 import type { Metadata } from "next";
-import { Geist_Mono } from "next/font/google";
 import Link from "next/link";
 
 import "./globals.css";
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Buffalo",
@@ -20,8 +14,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={geistMono.variable}>
-      <body className={geistMono.className}>
+    <html lang="en">
+      <body>
         <div className="app-frame">
           <div className="app-frame__rays" aria-hidden />
           <div className="app-frame__stripe" aria-hidden />
