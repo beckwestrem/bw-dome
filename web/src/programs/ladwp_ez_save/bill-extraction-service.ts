@@ -45,7 +45,8 @@ function field(
 function firstMatch(text: string, patterns: RegExp[]) {
   for (const pattern of patterns) {
     const match = text.match(pattern);
-    const value = match?.[1]?.trim();
+    if (!match) continue;
+    const value = match[1]?.trim();
     if (value) return { value, evidence: match[0].slice(0, 180) };
   }
   return null;

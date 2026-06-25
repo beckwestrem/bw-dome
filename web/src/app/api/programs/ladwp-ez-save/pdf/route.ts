@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ reason: result.reason }, { status: 500 });
   }
 
-  return new NextResponse(result.bytes, {
+  return new NextResponse(Buffer.from(result.bytes), {
     headers: {
       "Content-Disposition": `attachment; filename="${result.fileName}"`,
       "Content-Type": "application/pdf",
