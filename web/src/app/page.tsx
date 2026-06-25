@@ -5,11 +5,12 @@ export default function Home() {
     <main className="container container--home">
       <header className="hero home-hero home-hero--ladwp">
         <p className="kicker">LADWP EZ-SAVE</p>
-        <h1>Lower your LADWP bill and protect your utility service</h1>
+        <h1>
+          Automated EZ-SAVE Applications: in less than 5 minutes, LA residents
+          can cut their utility bills with a single, free application.
+        </h1>
         <p className="muted lead">
-          Check whether your household may qualify for LADWP&apos;s EZ-SAVE
-          Program, then prepare a filled application PDF you can review, sign,
-          and submit through LADWP&apos;s listed options.
+          Answer a few short questions to automate your application quickly.
         </p>
         <div className="row">
           <Link className="button button--emphasis" href="/utility-discounts">
@@ -43,10 +44,11 @@ export default function Home() {
         </article>
         <article className="ladwp-home-card">
           <p className="kicker">review first</p>
-          <h2>You stay in control of submission</h2>
+          <h2>Submission support is getting faster</h2>
           <p>
-            Download the filled PDF, review every field, sign it, and choose
-            LADWP&apos;s online, fax, or mail submission route.
+            Today you can download the completed PDF and submit it through
+            LADWP&apos;s listed options. Very soon, automated fax to program
+            administrators will be available.
           </p>
         </article>
       </section>

@@ -20,6 +20,7 @@
   --radius-sm: 0;
   --shadow: 0 2px 0 rgba(12, 12, 12, 0.06);
   --shadow-lg: 0 12px 40px rgba(12, 12, 12, 0.08);
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 html {
@@ -37,7 +38,7 @@ body {
   margin: 0;
   color: var(--foreground);
   background: var(--cream);
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 15px;
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
@@ -127,7 +128,7 @@ a:hover {
 }
 
 h1 {
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: clamp(1.5rem, 3.8vw, 2.05rem);
   font-weight: 500;
   letter-spacing: 0;
@@ -137,7 +138,7 @@ h1 {
 }
 
 h2 {
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 0.92rem;
   font-weight: 500;
   letter-spacing: 0;
@@ -146,7 +147,7 @@ h2 {
 }
 
 .kicker {
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   font-weight: 500;
   letter-spacing: 0.14em;
@@ -156,7 +157,7 @@ h2 {
 }
 
 .section-heading {
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: clamp(1rem, 2.2vw, 1.2rem);
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -215,38 +216,51 @@ h2 {
 }
 
 .home-hero {
-  max-width: 60rem;
+  max-width: 68rem;
 }
 
 .home-hero--ladwp {
-  gap: 1.15rem;
-  padding: clamp(1rem, 3vw, 1.5rem) 0 clamp(1.4rem, 4vw, 2rem);
+  justify-items: center;
+  gap: 1.2rem;
+  padding: clamp(1.6rem, 5vw, 3.25rem) clamp(1rem, 4vw, 2.75rem);
+  text-align: center;
+  border: 1px solid rgba(12, 12, 12, 0.1);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 252, 247, 0.82), rgba(250, 246, 239, 0.62)),
+    radial-gradient(circle at 50% 0%, rgba(26, 61, 58, 0.08), transparent 42%);
+  box-shadow: 0 24px 80px rgba(12, 12, 12, 0.08);
 }
 
 .home-hero--ladwp h1 {
-  max-width: 13ch;
-  font-size: clamp(2.15rem, 7vw, 4.5rem);
-  line-height: 0.98;
+  max-width: 860px;
+  font-size: clamp(2.35rem, 6vw, 4.65rem);
+  font-weight: 560;
+  line-height: 1.02;
 }
 
 .ladwp-home-grid {
   display: grid;
-  gap: 1rem;
+  gap: 1.05rem;
   grid-template-columns: 1fr;
 }
 
 .ladwp-home-card {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.7rem;
   align-content: start;
-  border-top: 2px solid var(--ink);
-  background: rgba(255, 252, 247, 0.72);
-  padding: 1rem 0 0;
+  min-height: 100%;
+  border: 1px solid rgba(12, 12, 12, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 252, 247, 0.78);
+  padding: clamp(1rem, 2.5vw, 1.35rem);
+  box-shadow: 0 14px 42px rgba(12, 12, 12, 0.06);
 }
 
 .ladwp-home-card h2 {
   max-width: 24rem;
   font-size: clamp(1.05rem, 2.4vw, 1.35rem);
+  font-weight: 600;
   line-height: 1.25;
 }
 
@@ -1156,19 +1170,25 @@ label {
   gap: 1.25rem;
   align-items: stretch;
   padding-bottom: 1.25rem;
-  border-bottom: 2px solid var(--ink);
-  box-shadow: 0 3px 0 0 var(--gold-dim);
 }
 
 .utility-landing--ladwp {
-  padding-top: clamp(0.8rem, 2vw, 1.25rem);
-  padding-bottom: clamp(1.3rem, 4vw, 2.2rem);
+  justify-items: center;
+  padding: clamp(1.5rem, 5vw, 3rem) clamp(1rem, 4vw, 2.6rem);
+  border: 1px solid rgba(12, 12, 12, 0.1);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 252, 247, 0.84), rgba(250, 246, 239, 0.64)),
+    radial-gradient(circle at 50% 0%, rgba(26, 61, 58, 0.08), transparent 42%);
+  box-shadow: 0 24px 80px rgba(12, 12, 12, 0.08);
 }
 
 .utility-landing__copy {
   display: grid;
   gap: 1.05rem;
   align-content: start;
+  justify-items: center;
+  text-align: center;
 }
 
 .utility-landing__copy .button {
@@ -1176,15 +1196,17 @@ label {
 }
 
 .utility-landing--ladwp h1 {
-  max-width: 14ch;
-  font-size: clamp(2.1rem, 7vw, 4.7rem);
-  line-height: 0.98;
+  max-width: 920px;
+  font-size: clamp(2.2rem, 6vw, 4.45rem);
+  font-weight: 560;
+  line-height: 1.02;
 }
 
 .utility-landing__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem;
+  justify-content: center;
   align-items: center;
 }
 
@@ -1200,11 +1222,15 @@ label {
   display: grid;
   gap: 0.5rem;
   align-content: center;
+  justify-items: center;
   padding: clamp(1.05rem, 3vw, 1.35rem);
-  min-height: 12rem;
+  min-height: 100%;
+  width: min(100%, 28rem);
+  text-align: center;
   background:
     linear-gradient(180deg, rgba(255, 252, 247, 0.92), rgba(250, 246, 239, 0.92)),
     var(--card-elevated);
+  border-radius: 16px;
 }
 
 .utility-landing__panel span,
@@ -1246,9 +1272,20 @@ label {
 
 .utility-info-grid article {
   display: grid;
-  gap: 0.55rem;
-  border-top: 2px solid var(--ink);
-  padding-top: 0.9rem;
+  gap: 0.65rem;
+  align-content: start;
+  min-height: 100%;
+  border: 1px solid rgba(12, 12, 12, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 252, 247, 0.78);
+  padding: clamp(1rem, 2.5vw, 1.35rem);
+  box-shadow: 0 14px 42px rgba(12, 12, 12, 0.06);
+}
+
+.utility-info-grid h2 {
+  font-size: clamp(1.05rem, 2.4vw, 1.3rem);
+  font-weight: 600;
+  line-height: 1.25;
 }
 
 .utility-info-grid p,
@@ -1258,12 +1295,16 @@ label {
 }
 
 .utility-faq {
-  border-top: 2px solid var(--ink);
-  padding-top: 1.15rem;
+  border: 1px solid rgba(12, 12, 12, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 252, 247, 0.62);
+  padding: clamp(1rem, 3vw, 1.35rem);
+  box-shadow: 0 14px 42px rgba(12, 12, 12, 0.05);
 }
 
 .utility-faq details {
   border: 1px solid rgba(12, 12, 12, 0.22);
+  border-radius: 12px;
   background: rgba(255, 252, 247, 0.76);
   padding: 0.9rem 1rem;
 }
@@ -1512,7 +1553,7 @@ label {
 
 @media (min-width: 720px) {
   .utility-landing {
-    grid-template-columns: minmax(0, 1.35fr) minmax(16rem, 0.65fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .utility-info-grid {

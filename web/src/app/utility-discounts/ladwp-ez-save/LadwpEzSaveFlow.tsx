@@ -440,12 +440,15 @@ export function LadwpEzSaveFlow() {
           <section className="utility-landing utility-landing--ladwp" aria-labelledby="ladwp-title">
             <div className="utility-landing__copy">
               <p className="kicker">LADWP EZ-SAVE Program</p>
-              <h1 id="ladwp-title">Prepare your LADWP discount application</h1>
+              <h1 id="ladwp-title">
+                Automated EZ-SAVE Applications: in less than 5 minutes, LA
+                residents can cut their utility bills with a single, free
+                application.
+              </h1>
               <p className="muted lead">
-                EZ-SAVE is LADWP&apos;s income-qualified utility discount program
-                for eligible residential customers. This tool checks the core
-                rules, helps fill the official application PDF, and keeps you in
-                control before anything is submitted.
+                Answer a few short questions to automate your application
+                quickly. EZ-SAVE is LADWP&apos;s income-qualified utility discount
+                program for eligible residential customers.
               </p>
               <div className="utility-landing__actions">
                 <button className="button button--emphasis" type="button" onClick={start}>
@@ -469,7 +472,10 @@ export function LadwpEzSaveFlow() {
             <div className="utility-landing__panel" aria-label="EZ-SAVE summary">
               <span>income-qualified residential discount</span>
               <strong>EZ-SAVE</strong>
-              <p>Filled PDF prep, review-first handoff, online, fax, and mail guidance.</p>
+              <p>
+                Completed PDF prep today. Automated fax to program
+                administrators is coming soon.
+              </p>
             </div>
           </section>
 
@@ -515,8 +521,17 @@ export function LadwpEzSaveFlow() {
             <details>
               <summary>Does this submit my application automatically?</summary>
               <p>
-                No. It prepares a filled PDF draft and shows LADWP&apos;s listed
-                submission paths. You review, sign, and choose how to submit.
+                Not yet. It prepares a filled PDF draft and shows LADWP&apos;s
+                listed submission paths. Very soon, automated fax to program
+                administrators will be available after review and consent.
+              </p>
+            </details>
+            <details>
+              <summary>How long can approval take?</summary>
+              <p>
+                LADWP controls review timing, so acceptance is not instant. Plan
+                for processing time after submission, and contact LADWP directly
+                if your bill is urgent or already past due.
               </p>
             </details>
             <details>
