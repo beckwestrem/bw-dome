@@ -4,8 +4,9 @@ import Link from "next/link";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Buffalo",
-  description: "Fast checks for business queues and utility bill savings.",
+  title: "LADWP EZ-SAVE Application Helper",
+  description:
+    "Check LADWP EZ-SAVE eligibility and prepare a filled application PDF.",
 };
 
 export default function RootLayout({
@@ -24,7 +25,7 @@ export default function RootLayout({
               home
             </Link>
             <Link className="button secondary" href="/utility-discounts">
-              bill check
+              EZ-SAVE check
             </Link>
           </nav>
           {children}

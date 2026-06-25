@@ -436,34 +436,107 @@ export function LadwpEzSaveFlow() {
   return (
     <main className="container utility-page">
       {step === "landing" ? (
-        <section className="utility-landing" aria-labelledby="ladwp-title">
-          <div className="utility-landing__copy">
-            <p className="kicker">LADWP EZ-SAVE</p>
-            <h1 id="ladwp-title">Check if you qualify for a lower LADWP bill</h1>
-            <p className="muted lead">
-              EZ-SAVE is LADWP&apos;s income-qualified discount program for
-              residential customers. If you qualify, it can reduce your utility
-              costs and make it easier to keep your account current.
-            </p>
-            <ul className="utility-list utility-landing__list">
-              <li>No proof of income is needed with the application.</li>
-              <li>We prepare a filled application draft for you to review.</li>
-              <li>You choose whether to download, fax, mail, or apply online.</li>
-            </ul>
-            <button className="button button--emphasis" type="button" onClick={start}>
-              Start my check
-            </button>
-            <p className="muted utility-fineprint">
-              This tool does not guarantee approval. If your bill is already
-              past due, LADWP may have separate payment assistance options.
-            </p>
-          </div>
-          <div className="utility-landing__panel" aria-label="EZ-SAVE summary">
-            <span>lower my utility bill</span>
-            <strong>EZ-SAVE</strong>
-            <p>Application prep for income-qualified LADWP residential customers.</p>
-          </div>
-        </section>
+        <>
+          <section className="utility-landing utility-landing--ladwp" aria-labelledby="ladwp-title">
+            <div className="utility-landing__copy">
+              <p className="kicker">LADWP EZ-SAVE Program</p>
+              <h1 id="ladwp-title">Prepare your LADWP discount application</h1>
+              <p className="muted lead">
+                EZ-SAVE is LADWP&apos;s income-qualified utility discount program
+                for eligible residential customers. This tool checks the core
+                rules, helps fill the official application PDF, and keeps you in
+                control before anything is submitted.
+              </p>
+              <div className="utility-landing__actions">
+                <button className="button button--emphasis" type="button" onClick={start}>
+                  Start EZ-SAVE check
+                </button>
+                <a
+                  className="button secondary"
+                  href={LADWP_EZ_SAVE_WORKFLOW.applicationUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  View LADWP page
+                </a>
+              </div>
+              <p className="muted utility-fineprint">
+                Approval is decided by LADWP. Once accepted and enrolled,
+                EZ-SAVE participants receive the program&apos;s bill discount and
+                utility shutoff protections related to late payment.
+              </p>
+            </div>
+            <div className="utility-landing__panel" aria-label="EZ-SAVE summary">
+              <span>income-qualified residential discount</span>
+              <strong>EZ-SAVE</strong>
+              <p>Filled PDF prep, review-first handoff, online, fax, and mail guidance.</p>
+            </div>
+          </section>
+
+          <section className="utility-info-grid" aria-label="Why EZ-SAVE matters">
+            <article>
+              <h2>Lower monthly LADWP costs</h2>
+              <p>
+                EZ-SAVE is designed to reduce utility bills for eligible LADWP
+                residential customers. A lower bill can make it easier to stay
+                current each month.
+              </p>
+            </article>
+            <article>
+              <h2>Protection after enrollment</h2>
+              <p>
+                After LADWP accepts the application and enrolls the account,
+                participants receive program protections related to utility
+                shutoff for late payment.
+              </p>
+            </article>
+            <article>
+              <h2>No income proof uploaded here</h2>
+              <p>
+                The EZ-SAVE application does not require proof of income with
+                the initial packet. LADWP may verify eligibility later.
+              </p>
+            </article>
+          </section>
+
+          <section className="utility-faq" aria-labelledby="ladwp-faq-title">
+            <div>
+              <p className="kicker">FAQ</p>
+              <h2 id="ladwp-faq-title">Common EZ-SAVE questions</h2>
+            </div>
+            <details>
+              <summary>Who is EZ-SAVE for?</summary>
+              <p>
+                EZ-SAVE is for income-qualified LADWP residential customers.
+                The application is tied to the LADWP customer of record and the
+                household&apos;s primary residence.
+              </p>
+            </details>
+            <details>
+              <summary>Does this submit my application automatically?</summary>
+              <p>
+                No. It prepares a filled PDF draft and shows LADWP&apos;s listed
+                submission paths. You review, sign, and choose how to submit.
+              </p>
+            </details>
+            <details>
+              <summary>What if my bill is already past due?</summary>
+              <p>
+                You can still check EZ-SAVE. Because shutoff protections apply
+                after LADWP accepts and enrolls the account, it may also be
+                worth contacting LADWP about payment assistance or arrangements.
+              </p>
+            </details>
+            <details>
+              <summary>Do I need to upload a utility bill?</summary>
+              <p>
+                No. Upload is optional and only helps prefill simple account
+                details when possible. You can complete the whole workflow
+                manually.
+              </p>
+            </details>
+          </section>
+        </>
       ) : null}
 
       <div ref={formRef}>
@@ -592,8 +665,8 @@ function LadwpForm({
             </select>
           </label>
           <SelectBoolean
-            hint="Choose yes if this is an LADWP residential account for your home."
-            label="Are you an LADWP customer?"
+            hint="Choose yes if this is an LADWP residential electric or water account for the home where you live."
+            label="Are you an LADWP residential customer?"
             name="isLadwpCustomer"
           />
           <label>
@@ -607,40 +680,65 @@ function LadwpForm({
           <label>
             First name
             <input autoComplete="given-name" name="firstName" placeholder="Maria" />
+            <span className="muted utility-field-help">
+              Use the first name of the LADWP customer of record.
+            </span>
           </label>
           <label>
             Last name
             <input autoComplete="family-name" name="lastName" placeholder="Garcia" />
+            <span className="muted utility-field-help">
+              Use the last name exactly as it should appear on the application.
+            </span>
           </label>
           <label>
             Middle initial
             <input maxLength={1} name="middleInitial" placeholder="A" />
+            <span className="muted utility-field-help">
+              Optional. Leave blank if you do not use a middle initial.
+            </span>
           </label>
           <label>
             Street number
             <input name="serviceAddressStreetNumber" placeholder="123" />
+            <span className="muted utility-field-help">
+              Use the number from the LADWP service address.
+            </span>
           </label>
           <label>
             Street name
             <input name="serviceAddressStreetName" placeholder="Spring St" />
+            <span className="muted utility-field-help">
+              Include direction or suffix if it appears on the bill.
+            </span>
           </label>
           <label>
             Apartment number
             <input name="apartmentNumber" placeholder="4B" />
+            <span className="muted utility-field-help">
+              Optional. Use the apartment, unit, space, or suite number.
+            </span>
           </label>
           <label>
             Home telephone
             <input inputMode="tel" name="phone" placeholder="213-555-0100" />
+            <span className="muted utility-field-help">
+              Recommended so LADWP can reach you if the application needs review.
+            </span>
           </label>
           <label>
             Mobile telephone
             <input inputMode="tel" name="mobilePhone" placeholder="323-555-0100" />
+            <span className="muted utility-field-help">
+              Optional. Add the best mobile number for application follow-up.
+            </span>
           </label>
           <label>
             Household total
             <input min={1} name="householdTotal" type="number" />
             <span className="muted utility-field-help">
-              Count everyone who lives in the home, including children.
+              Count everyone who lives in the household, including children,
+              relatives, and roommates.
             </span>
           </label>
           <label>
@@ -662,6 +760,7 @@ function LadwpForm({
             <input min={0} name="annualGrossHouseholdIncome" type="number" />
             <span className="muted utility-field-help">
               Enter yearly income before taxes for everyone in the household.
+              LADWP may verify eligibility later.
             </span>
           </label>
           <SelectBoolean
@@ -693,6 +792,10 @@ function LadwpForm({
           <label>
             Email for reminders
             <input autoComplete="email" name="email" type="email" placeholder="you@example.com" />
+            <span className="muted utility-field-help">
+              Optional. LADWP&apos;s official packet lists online, fax, and mail
+              submission, not email submission.
+            </span>
           </label>
           <label>
             Monthly bill amount
@@ -702,7 +805,12 @@ function LadwpForm({
               could be for you.
             </span>
           </label>
-          <SelectBoolean label="Is the bill past due?" name="pastDueStatus" optional />
+          <SelectBoolean
+            hint="Optional. If yes, you may also want to contact LADWP about payment assistance or a payment arrangement."
+            label="Is the bill past due?"
+            name="pastDueStatus"
+            optional
+          />
         </div>
 
         <fieldset className="utility-programs">
