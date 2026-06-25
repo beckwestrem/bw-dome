@@ -1,9 +1,21 @@
 import { NextResponse } from "next/server";
 
-import { StubEzSavePdfService } from "@/programs/ladwp_ez_save/pdf-service";
+import { PdfLibEzSavePdfService } from "@/programs/ladwp_ez_save/pdf-service";
+import type { LadwpEzSaveApplicationDraft } from "@/programs/ladwp_ez_save/types";
 
-export async function POST() {
-  const service = new StubEzSavePdfService();
-  const result = await service.fillApplicationPdf();
-  return NextResponse.json(result, { status: result.ok ? 200 : 501 });
+export async function POST(request: Request) {
+  const draft = (await request.json()) as LadwpEzSaveApplicationDraft;
+  const service = new PdfLibEzSavePdfService();
+  const result = await service.fillApplicationPdf(draft);
+
+  if (!result.ok) {
+    return NextResponse.json({ reason: result.reason }, { status: 500 });
+  }
+
+  return new NextResponse(result.bytes, {
+    headers: {
+      "Content-Disposition": `attachment; filename="${result.fileName}"`,
+      "Content-Type": "application/pdf",
+    },
+  });
 }

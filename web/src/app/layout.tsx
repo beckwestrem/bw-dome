@@ -1,17 +1,12 @@
 import type { Metadata } from "next";
-import { Geist_Mono } from "next/font/google";
 import Link from "next/link";
 
 import "./globals.css";
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "Buffalo",
-  description: "Fast checks for business queues and utility bill savings.",
+  title: "LADWP EZ-SAVE Application Helper",
+  description:
+    "Check LADWP EZ-SAVE eligibility and prepare a filled application PDF.",
 };
 
 export default function RootLayout({
@@ -20,8 +15,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={geistMono.variable}>
-      <body className={geistMono.className}>
+    <html lang="en">
+      <body>
         <div className="app-frame">
           <div className="app-frame__rays" aria-hidden />
           <div className="app-frame__stripe" aria-hidden />
@@ -30,7 +25,7 @@ export default function RootLayout({
               home
             </Link>
             <Link className="button secondary" href="/utility-discounts">
-              bill check
+              EZ-SAVE check
             </Link>
           </nav>
           {children}

@@ -67,10 +67,49 @@ const rulesModule = loadTs(
 const draftModule = loadTs(
   path.join(root, "src/programs/ladwp_ez_save/draft-service.ts"),
 );
+const pdfModule = loadTs(
+  path.join(root, "src/programs/ladwp_ez_save/pdf-service.ts"),
+);
+const submissionModule = loadTs(
+  path.join(root, "src/programs/ladwp_ez_save/submission-service.ts"),
+);
+const billExtractionModule = loadTs(
+  path.join(root, "src/programs/ladwp_ez_save/bill-extraction-service.ts"),
+);
 
 const { LADWP_EZ_SAVE_FIELDS, LADWP_EZ_SAVE_WORKFLOW } = workflowModule;
 const { checkLadwpEzSaveEligibility, getLadwpEzSaveIncomeLimit } = rulesModule;
 const { RulesBasedEzSaveDraftService } = draftModule;
+const { PdfLibEzSavePdfService } = pdfModule;
+const { LadwpFaxSubmissionService, prepareLadwpEmailDraft } = submissionModule;
+const { LocalTextBillExtractionService } = billExtractionModule;
+
+async function sampleLadwpDraft() {
+  const draftService = new RulesBasedEzSaveDraftService();
+  return draftService.createDraft({
+    utilityProvider: "LADWP",
+    isLadwpCustomer: true,
+    firstName: "Jamie",
+    lastName: "Rivera",
+    middleInitial: "Q",
+    serviceAddressStreetNumber: "123",
+    serviceAddressStreetName: "Main St",
+    apartmentNumber: "4B",
+    phone: "2135551212",
+    mobilePhone: "3105553434",
+    householdTotal: 4,
+    householdAdults: 2,
+    householdChildren: 2,
+    annualGrossHouseholdIncome: 64000,
+    isCustomerOfRecord: true,
+    isPrimaryResidence: true,
+    claimedAsDependent: false,
+    newApplicationOrRenewal: "new_application",
+    consentToPrepareApplication: true,
+    userCertifiesReviewRequired: true,
+    accountNumber: "1234567890",
+  });
+}
 
 test("LADWP workflow defines required MVP fields", () => {
   const defined = new Set(LADWP_EZ_SAVE_FIELDS.map((field) => field.fieldKey));
@@ -142,4 +181,116 @@ test("LADWP draft uses missingFields instead of invented values", async () => {
     draft.fields.some((field) => field.fieldKey === "first_name"),
     false,
   );
+});
+
+test("LADWP PDF service fills the official application template", async () => {
+  const pdfService = new PdfLibEzSavePdfService();
+  const draft = await sampleLadwpDraft();
+
+  const result = await pdfService.fillApplicationPdf(draft);
+
+  assert.equal(result.ok, true);
+  assert.equal(result.fileName, "ladwp-ez-save-application-draft.pdf");
+  assert.ok(result.bytes.length > 400_000);
+  assert.equal(Buffer.from(result.bytes).subarray(0, 4).toString(), "%PDF");
+});
+
+test("LADWP email draft prepares a mailto handoff with attachment instructions", async () => {
+  const draft = await sampleLadwpDraft();
+  const result = prepareLadwpEmailDraft(draft, "application.pdf");
+
+  assert.equal(result.ok, true);
+  assert.equal(result.recipientEmail, null);
+  assert.ok(result.mailtoHref.startsWith("mailto:?subject="));
+  assert.match(decodeURIComponent(result.mailtoHref), /Attach this signed PDF/);
+  assert.match(result.officialSubmissionNote, /does not list an email/);
+});
+
+test("LADWP fax service reports not configured without a provider", async () => {
+  const service = new LadwpFaxSubmissionService({
+    async fillApplicationPdf() {
+      throw new Error("PDF should not be generated without a fax provider");
+    },
+  });
+  const result = await service.sendFax(await sampleLadwpDraft());
+
+  assert.equal(result.ok, false);
+  assert.equal(result.status, "not_configured");
+  assert.equal(result.faxNumber, LADWP_EZ_SAVE_WORKFLOW.faxNumber);
+});
+
+test("LADWP fax service sends base64 PDF payload through configured provider", async () => {
+  const service = new LadwpFaxSubmissionService(
+    {
+      async fillApplicationPdf() {
+        return {
+          ok: true,
+          fileName: "application.pdf",
+          bytes: Uint8Array.from([37, 80, 68, 70]),
+        };
+      },
+    },
+    {
+      async sendFax(input) {
+        assert.equal(input.to, LADWP_EZ_SAVE_WORKFLOW.faxNumber);
+        assert.equal(input.fileName, "application.pdf");
+        assert.equal(input.pdfBase64, Buffer.from("%PDF").toString("base64"));
+        return { ok: true, confirmationId: "fax_123" };
+      },
+    },
+  );
+  const result = await service.sendFax(await sampleLadwpDraft());
+
+  assert.equal(result.ok, true);
+  assert.equal(result.confirmationId, "fax_123");
+});
+
+test("LADWP bill extraction prefills obvious fields from text bills", async () => {
+  const service = new LocalTextBillExtractionService();
+  const billText = `
+    Los Angeles Department of Water and Power
+    Account Number: 123 456 7890
+    Customer: Jamie Rivera
+    Service Address: 123 Main St, Los Angeles, CA 90012
+    Total Amount Due: $184.42
+    Phone: 213-555-1212
+    Past due balance
+  `;
+
+  const result = await service.extract({
+    fileName: "ladwp-bill.txt",
+    contentType: "text/plain",
+    bytes: new TextEncoder().encode(billText),
+  });
+  const fields = Object.fromEntries(
+    result.fields.map((field) => [field.fieldKey, field.value]),
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.provider, "local_text");
+  assert.equal(fields.utilityProvider, "LADWP");
+  assert.equal(fields.isLadwpCustomer, true);
+  assert.equal(fields.accountNumber, "1234567890");
+  assert.equal(fields.firstName, "Jamie");
+  assert.equal(fields.lastName, "Rivera");
+  assert.equal(fields.serviceAddressStreetNumber, "123");
+  assert.equal(fields.serviceAddressStreetName, "Main St");
+  assert.equal(fields.zipCode, "90012");
+  assert.equal(fields.monthlyBillAmount, 184.42);
+  assert.equal(fields.pastDueStatus, true);
+  assert.match(result.warnings.join(" "), /Review all bill-derived fields/);
+});
+
+test("LADWP bill extraction does not require LLM/OCR to continue manually", async () => {
+  const service = new LocalTextBillExtractionService();
+  const result = await service.extract({
+    fileName: "ladwp-bill.pdf",
+    contentType: "application/pdf",
+    bytes: Uint8Array.from([37, 80, 68, 70]),
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.provider, "local_text");
+  assert.deepEqual(result.fields, []);
+  assert.match(result.warnings.join(" "), /PDF\/image extraction needs an LLM or OCR provider/);
 });

@@ -57,7 +57,7 @@ body {
   width: 100%;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, var(--cream) 0%, var(--cream-deep) 55%, #dcd0bc 100%);
+  background: linear-gradient(180deg, #f7f4ee 0%, #ece6dc 55%, #ded5c8 100%);
 }
 
 .app-frame__rays {
@@ -130,18 +130,18 @@ h1 {
   font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-size: clamp(1.5rem, 3.8vw, 2.05rem);
   font-weight: 500;
-  letter-spacing: -0.03em;
-  text-transform: lowercase;
+  letter-spacing: 0;
+  text-transform: none;
   line-height: 1.2;
   color: var(--ink);
 }
 
 h2 {
   font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 0.82rem;
+  font-size: 0.92rem;
   font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: lowercase;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--ink);
 }
 
@@ -215,7 +215,44 @@ h2 {
 }
 
 .home-hero {
-  max-width: 58rem;
+  max-width: 60rem;
+}
+
+.home-hero--ladwp {
+  gap: 1.15rem;
+  padding: clamp(1rem, 3vw, 1.5rem) 0 clamp(1.4rem, 4vw, 2rem);
+}
+
+.home-hero--ladwp h1 {
+  max-width: 13ch;
+  font-size: clamp(2.15rem, 7vw, 4.5rem);
+  line-height: 0.98;
+}
+
+.ladwp-home-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+.ladwp-home-card {
+  display: grid;
+  gap: 0.65rem;
+  align-content: start;
+  border-top: 2px solid var(--ink);
+  background: rgba(255, 252, 247, 0.72);
+  padding: 1rem 0 0;
+}
+
+.ladwp-home-card h2 {
+  max-width: 24rem;
+  font-size: clamp(1.05rem, 2.4vw, 1.35rem);
+  line-height: 1.25;
+}
+
+.ladwp-home-card p {
+  color: var(--muted);
+  line-height: 1.6;
 }
 
 .product-switchboard {
@@ -279,6 +316,10 @@ h2 {
   .product-switchboard {
     grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
     align-items: stretch;
+  }
+
+  .ladwp-home-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -1107,7 +1148,7 @@ label {
 
 /* Utility discount MVP */
 .utility-page {
-  gap: 1.5rem;
+  gap: 1.65rem;
 }
 
 .utility-landing {
@@ -1119,9 +1160,14 @@ label {
   box-shadow: 0 3px 0 0 var(--gold-dim);
 }
 
+.utility-landing--ladwp {
+  padding-top: clamp(0.8rem, 2vw, 1.25rem);
+  padding-bottom: clamp(1.3rem, 4vw, 2.2rem);
+}
+
 .utility-landing__copy {
   display: grid;
-  gap: 1rem;
+  gap: 1.05rem;
   align-content: start;
 }
 
@@ -1129,20 +1175,36 @@ label {
   width: fit-content;
 }
 
+.utility-landing--ladwp h1 {
+  max-width: 14ch;
+  font-size: clamp(2.1rem, 7vw, 4.7rem);
+  line-height: 0.98;
+}
+
+.utility-landing__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+}
+
 .utility-landing__panel,
 .utility-card,
 .utility-result {
-  border: 2px solid var(--ink);
+  border: 1px solid rgba(12, 12, 12, 0.68);
   background: var(--card-elevated);
-  box-shadow: inset 0 0 0 1px var(--line-gold), var(--shadow-lg);
+  box-shadow: var(--shadow-lg);
 }
 
 .utility-landing__panel {
   display: grid;
   gap: 0.5rem;
   align-content: center;
-  padding: 1.1rem;
-  min-height: 10rem;
+  padding: clamp(1.05rem, 3vw, 1.35rem);
+  min-height: 12rem;
+  background:
+    linear-gradient(180deg, rgba(255, 252, 247, 0.92), rgba(250, 246, 239, 0.92)),
+    var(--card-elevated);
 }
 
 .utility-landing__panel span,
@@ -1151,14 +1213,14 @@ label {
 }
 
 .utility-landing__panel span {
-  color: var(--gold);
+  color: var(--accent);
   font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: lowercase;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .utility-landing__panel strong {
-  font-size: clamp(1.45rem, 8vw, 2.3rem);
+  font-size: clamp(1.75rem, 8vw, 3rem);
   font-weight: 500;
   line-height: 1;
 }
@@ -1168,11 +1230,69 @@ label {
   line-height: 1.5;
 }
 
+.utility-landing__list {
+  max-width: 42rem;
+}
+
+.utility-info-grid,
+.utility-faq {
+  display: grid;
+  gap: 1rem;
+}
+
+.utility-info-grid {
+  grid-template-columns: 1fr;
+}
+
+.utility-info-grid article {
+  display: grid;
+  gap: 0.55rem;
+  border-top: 2px solid var(--ink);
+  padding-top: 0.9rem;
+}
+
+.utility-info-grid p,
+.utility-faq p {
+  color: var(--muted);
+  line-height: 1.58;
+}
+
+.utility-faq {
+  border-top: 2px solid var(--ink);
+  padding-top: 1.15rem;
+}
+
+.utility-faq details {
+  border: 1px solid rgba(12, 12, 12, 0.22);
+  background: rgba(255, 252, 247, 0.76);
+  padding: 0.9rem 1rem;
+}
+
+.utility-faq summary {
+  cursor: pointer;
+  color: var(--ink);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.utility-faq details[open] summary {
+  margin-bottom: 0.55rem;
+}
+
 .utility-card,
 .utility-result {
   display: grid;
   gap: 1.15rem;
-  padding: 1.15rem;
+  padding: clamp(1rem, 3vw, 1.35rem);
+}
+
+.utility-form-intro {
+  display: grid;
+  gap: 0.65rem;
+  max-width: 48rem;
+  color: var(--muted);
+  font-size: 0.96rem;
+  line-height: 1.55;
 }
 
 .utility-form {
@@ -1192,17 +1312,17 @@ label {
   display: grid;
   gap: 0.4rem;
   color: var(--ink);
-  font-size: 0.78rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: lowercase;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .utility-form input,
 .utility-form select {
   width: 100%;
   min-height: 2.45rem;
-  border: 2px solid var(--ink);
+  border: 1px solid rgba(12, 12, 12, 0.58);
   background: var(--panel);
   color: var(--ink);
   font: inherit;
@@ -1214,10 +1334,19 @@ label {
   padding: 0.5rem;
 }
 
+.utility-field-help {
+  max-width: 38rem;
+  font-size: 0.76rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.45;
+  text-transform: none;
+}
+
 .utility-programs {
   display: grid;
   gap: 0.75rem;
-  border: 2px solid var(--ink);
+  border: 1px solid rgba(12, 12, 12, 0.42);
   padding: 1rem;
   background: var(--panel);
 }
@@ -1384,6 +1513,10 @@ label {
 @media (min-width: 720px) {
   .utility-landing {
     grid-template-columns: minmax(0, 1.35fr) minmax(16rem, 0.65fr);
+  }
+
+  .utility-info-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .utility-form__grid,
