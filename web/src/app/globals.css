@@ -181,6 +181,10 @@ h2 {
   gap: 2.25rem;
 }
 
+.home-tabbar {
+  margin-top: -0.5rem;
+}
+
 .container > .lead,
 .hero .lead {
   max-width: 52ch;
@@ -1545,6 +1549,21 @@ label {
   padding-top: 1rem;
 }
 
+.utility-mail-address {
+  display: grid;
+  gap: 0.2rem;
+  font-style: normal;
+  line-height: 1.45;
+}
+
+.utility-hash {
+  overflow-wrap: anywhere;
+}
+
+.utility-receipt-link {
+  width: fit-content;
+}
+
 .utility-list {
   display: grid;
   gap: 0.65rem;
@@ -1638,6 +1657,14 @@ label {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem 0.8rem;
+}
+
+.utility-draft-actions {
+  align-items: center;
+}
+
+.utility-draft-actions__side {
+  margin-left: auto;
 }
 
 .utility-copy-preview {

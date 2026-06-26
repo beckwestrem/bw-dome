@@ -100,4 +100,29 @@ export async function ensureSchema(
   await sql`
     ALTER TABLE ingestions ALTER COLUMN owner_id SET NOT NULL
   `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS ez_save_submissions (
+      id text PRIMARY KEY,
+      receipt_token text NOT NULL UNIQUE,
+      status text NOT NULL DEFAULT 'draft',
+      signer_name text,
+      signer_email text,
+      consent_text text NOT NULL,
+      consent_version text NOT NULL,
+      signed_at timestamptz,
+      fax_number text NOT NULL,
+      fax_provider text,
+      fax_confirmation_id text,
+      fax_status_detail text,
+      pdf_sha256 text,
+      signed_pdf bytea,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS ez_save_submissions_receipt_token_idx
+    ON ez_save_submissions (receipt_token)
+  `;
 }

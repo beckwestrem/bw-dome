@@ -24,9 +24,6 @@ export default function RootLayout({
             <Link className="button secondary app-top-nav__home" href="/">
               home
             </Link>
-            <Link className="button secondary" href="/utility-discounts">
-              EZ-SAVE check
-            </Link>
           </nav>
           {children}
         </div>

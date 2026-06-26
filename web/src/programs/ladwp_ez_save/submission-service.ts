@@ -2,15 +2,6 @@ import { LADWP_EZ_SAVE_WORKFLOW } from "./workflow";
 import type { PdfFillResult } from "./pdf-service";
 import type { LadwpEzSaveApplicationDraft } from "./types";
 
-export type EmailDraftResult = {
-  ok: true;
-  mailtoHref: string;
-  fileName: string;
-  recipientEmail: string | null;
-  attachmentReminder: string;
-  officialSubmissionNote: string;
-};
-
 export type FaxSubmissionResult =
   | {
       ok: true;
@@ -36,50 +27,6 @@ export interface LadwpFaxProvider {
 type PdfGenerator = {
   fillApplicationPdf(draft: LadwpEzSaveApplicationDraft): Promise<PdfFillResult>;
 };
-
-function applicantName(draft: LadwpEzSaveApplicationDraft) {
-  const fields = new Map(draft.fields.map((field) => [field.fieldKey, field.value]));
-  return [fields.get("first_name"), fields.get("last_name")]
-    .filter((value): value is string => typeof value === "string" && value.trim() !== "")
-    .join(" ");
-}
-
-function buildMailtoHref(draft: LadwpEzSaveApplicationDraft, fileName: string) {
-  const recipient = LADWP_EZ_SAVE_WORKFLOW.emailSubmissionAddress;
-  const name = applicantName(draft);
-  const subject = "LADWP EZ-SAVE application";
-  const body = [
-    "Hello,",
-    "",
-    `Please find the LADWP EZ-SAVE application${name ? ` for ${name}` : ""}.`,
-    "",
-    `Attach this signed PDF before sending: ${fileName}`,
-    "",
-    "Official LADWP EZ-SAVE submission options listed in the application packet are online, fax, and mail. Use email only if you have confirmed the recipient accepts EZ-SAVE applications.",
-    "",
-    `Fax: ${LADWP_EZ_SAVE_WORKFLOW.faxNumber}`,
-    `Mail: ${LADWP_EZ_SAVE_WORKFLOW.mailAddress.join(", ")}`,
-  ].join("\n");
-
-  return `mailto:${recipient ?? ""}?subject=${encodeURIComponent(
-    subject,
-  )}&body=${encodeURIComponent(body)}`;
-}
-
-export function prepareLadwpEmailDraft(
-  draft: LadwpEzSaveApplicationDraft,
-  fileName = "ladwp-ez-save-application-draft.pdf",
-): EmailDraftResult {
-  return {
-    ok: true,
-    mailtoHref: buildMailtoHref(draft, fileName),
-    fileName,
-    recipientEmail: LADWP_EZ_SAVE_WORKFLOW.emailSubmissionAddress,
-    attachmentReminder:
-      "Email apps do not allow websites to attach generated PDFs automatically. Download the packet, sign it, then attach it to the email draft.",
-    officialSubmissionNote: LADWP_EZ_SAVE_WORKFLOW.emailSubmissionNote,
-  };
-}
 
 export class WebhookFaxProvider implements LadwpFaxProvider {
   constructor(private readonly webhookUrl: string) {}

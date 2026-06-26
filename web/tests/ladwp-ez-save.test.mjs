@@ -80,8 +80,8 @@ const billExtractionModule = loadTs(
 const { LADWP_EZ_SAVE_FIELDS, LADWP_EZ_SAVE_WORKFLOW } = workflowModule;
 const { checkLadwpEzSaveEligibility, getLadwpEzSaveIncomeLimit } = rulesModule;
 const { RulesBasedEzSaveDraftService } = draftModule;
-const { PdfLibEzSavePdfService } = pdfModule;
-const { LadwpFaxSubmissionService, prepareLadwpEmailDraft } = submissionModule;
+const { applyElectronicSignatureToPdf, PdfLibEzSavePdfService } = pdfModule;
+const { LadwpFaxSubmissionService } = submissionModule;
 const { LocalTextBillExtractionService } = billExtractionModule;
 
 async function sampleLadwpDraft() {
@@ -194,15 +194,20 @@ test("LADWP PDF service fills the official application template", async () => {
   assert.equal(Buffer.from(result.bytes).subarray(0, 4).toString(), "%PDF");
 });
 
-test("LADWP email draft prepares a mailto handoff with attachment instructions", async () => {
+test("LADWP PDF service applies electronic signature overlay", async () => {
+  const pdfService = new PdfLibEzSavePdfService();
   const draft = await sampleLadwpDraft();
-  const result = prepareLadwpEmailDraft(draft, "application.pdf");
-
+  const result = await pdfService.fillApplicationPdf(draft);
   assert.equal(result.ok, true);
-  assert.equal(result.recipientEmail, null);
-  assert.ok(result.mailtoHref.startsWith("mailto:?subject="));
-  assert.match(decodeURIComponent(result.mailtoHref), /Attach this signed PDF/);
-  assert.match(result.officialSubmissionNote, /does not list an email/);
+
+  const signed = await applyElectronicSignatureToPdf(result.bytes, {
+    signerName: "Jamie Rivera",
+    signedAt: new Date("2026-06-26T12:00:00.000Z"),
+    consentVersion: "test-version",
+  });
+
+  assert.ok(signed.length > result.bytes.length);
+  assert.equal(Buffer.from(signed).subarray(0, 4).toString(), "%PDF");
 });
 
 test("LADWP fax service reports not configured without a provider", async () => {

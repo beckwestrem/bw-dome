@@ -25,9 +25,6 @@ export const LADWP_EZ_SAVE_WORKFLOW = {
     "Los Angeles, CA 90051-6707",
   ],
   faxNumber: "(213) 241-1465",
-  emailSubmissionAddress: null,
-  emailSubmissionNote:
-    "The official LADWP EZ-SAVE packet lists online, fax, and mail submission. It does not list an email submission address.",
   contactPhone: "1-800-DIAL-DWP",
   lastVerifiedDate: null,
   annualReviewNote:
@@ -99,28 +96,22 @@ export const LADWP_EZ_SAVE_WORKFLOW = {
   },
   handoffOptions: [
     {
-      key: "online",
-      title: "Online application",
-      copy: "Fastest if you have an LADWP online account.",
-      buttonLabel: "Open LADWP application",
+      key: "fax",
+      title: "Fax",
+      copy: "Only use this after reviewing and signing your application.",
+      buttonLabel: "Fax to LADWP",
     },
     {
       key: "pdf",
       title: "Filled PDF packet",
-      copy: "Download your completed draft. Review it, sign it, then submit to LADWP.",
+      copy: "Download your completed draft. Review it, sign it, then fax it yourself or print and mail it to LADWP.",
       buttonLabel: "Download filled EZ-SAVE PDF",
     },
     {
-      key: "mail_fax",
-      title: "Mail or fax",
-      copy: "Only use this after reviewing and signing your application.",
-      buttonLabel: "View mail/fax instructions",
-    },
-    {
-      key: "email_draft",
-      title: "Email draft",
-      copy: "Download the packet and open a prewritten email draft. Attach the signed PDF before sending.",
-      buttonLabel: "Prepare email draft",
+      key: "mail",
+      title: "Mail",
+      copy: "Print the signed application and mail it to LADWP.",
+      buttonLabel: "View mailing address",
     },
   ],
   checklistItems: [
@@ -132,7 +123,7 @@ export const LADWP_EZ_SAVE_WORKFLOW = {
     "Signature before submitting",
   ],
   extensionOrPartnerFutureNote:
-    "A future browser extension or official partner integration can consume the ApplicationDraft payload after user review and consent. No automatic submission is allowed in the MVP.",
+    "A future fax provider integration can consume the ApplicationDraft payload after user review and consent. No automatic submission is allowed until fax delivery, confirmation, and audit records are implemented.",
 } as const;
 
 export const LADWP_EZ_SAVE_FIELDS: LadwpEzSaveWorkflowField[] = [
@@ -353,7 +344,7 @@ export const LADWP_EZ_SAVE_FIELDS: LadwpEzSaveWorkflowField[] = [
     label: "Email",
     type: "text",
     required: false,
-    userHelpText: "Optional. Use this if you want reminders or a copy of your application draft. LADWP's official packet does not list email as a standard submission method.",
+    userHelpText: "Optional. Use this only for app reminders or a copy of your application draft. LADWP EZ-SAVE submission is by fax or mail.",
     sourcePriority: ["user_answer", "manual_edit"],
     canLlmFill: false,
     requiresUserConfirmation: true,

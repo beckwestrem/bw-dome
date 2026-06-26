@@ -13,6 +13,12 @@ export interface EzSavePdfService {
   fillApplicationPdf(draft: LadwpEzSaveApplicationDraft): Promise<PdfFillResult>;
 }
 
+export type ElectronicSignature = {
+  signerName: string;
+  signedAt: Date;
+  consentVersion: string;
+};
+
 type DraftFieldMap = Map<string, LadwpEzSaveDraftField["value"]>;
 
 const TEMPLATE_PATH = path.join(
@@ -124,4 +130,33 @@ export class PdfLibEzSavePdfService implements EzSavePdfService {
       };
     }
   }
+}
+
+export async function applyElectronicSignatureToPdf(
+  pdfBytes: Uint8Array,
+  signature: ElectronicSignature,
+): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.load(pdfBytes);
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const page = pdfDoc.getPage(0);
+  const { height } = page.getSize();
+  const signedAt = signature.signedAt.toISOString();
+
+  page.drawText(`Electronically signed by ${signature.signerName}`, {
+    x: 70,
+    y: topLeftY(height, 682, 0),
+    size: 10,
+    font: boldFont,
+    color: TEXT_COLOR,
+  });
+  page.drawText(`Signed at ${signedAt} | Consent ${signature.consentVersion}`, {
+    x: 70,
+    y: topLeftY(height, 697, 0),
+    size: 7,
+    font,
+    color: TEXT_COLOR,
+  });
+
+  return pdfDoc.save();
 }

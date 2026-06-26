@@ -317,6 +317,7 @@ export function LadwpEzSaveFlow() {
   const [loading, setLoading] = useState(false);
   const [pdfStatus, setPdfStatus] = useState("");
   const [submissionStatus, setSubmissionStatus] = useState("");
+  const [receiptUrl, setReceiptUrl] = useState("");
   const formRef = useRef<HTMLDivElement>(null);
 
   function start() {
@@ -475,45 +476,46 @@ export function LadwpEzSaveFlow() {
     const reviewedDraft = draftWithReviewedValues(draft, draftValues);
     await downloadPdfForDraft(
       reviewedDraft,
-      "PDF downloaded. Review it, sign it, then submit to LADWP.",
+      "PDF downloaded. Review it, sign it, then fax it yourself or print and mail it to LADWP.",
     );
   }
 
-  async function tryEmailDraft() {
+  async function tryFax(signature: {
+    signerName: string;
+    signerEmail?: string | null;
+    consentAccepted: boolean;
+  }) {
     if (!draft) return;
     const reviewedDraft = draftWithReviewedValues(draft, draftValues);
     setPdfStatus("");
-    setSubmissionStatus("Preparing email draft...");
-    const response = await fetch(
-      "/api/programs/ladwp-ez-save/submit/email-draft",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(reviewedDraft),
-      },
-    );
+    setSubmissionStatus("Preparing signed PDF and fax...");
+    setReceiptUrl("");
+
+    const response = await fetch("/api/programs/ladwp-ez-save/submit/fax", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ draft: reviewedDraft, signature }),
+    });
     const json = (await response.json()) as {
-      mailtoHref?: string;
-      attachmentReminder?: string;
-      officialSubmissionNote?: string;
+      ok?: boolean;
+      message?: string;
+      reason?: string;
       error?: string;
+      receiptUrl?: string;
+      confirmationId?: string;
     };
 
-    if (!response.ok || !json.mailtoHref) {
-      setSubmissionStatus(json.error ?? "Could not prepare the email draft.");
+    setReceiptUrl(json.receiptUrl ?? "");
+    if (!response.ok || !json.ok) {
+      setSubmissionStatus(
+        json.reason ?? json.error ?? "Could not send the fax yet.",
+      );
       return;
     }
 
-    const downloaded = await downloadPdfForDraft(
-      reviewedDraft,
-      "PDF downloaded for email attachment.",
-    );
-    if (!downloaded) return;
-
-    window.location.href = json.mailtoHref;
     setSubmissionStatus(
-      `${json.attachmentReminder ?? "Attach the signed PDF before sending."} ${
-        json.officialSubmissionNote ?? ""
+      `${json.message ?? "Fax submitted to LADWP."}${
+        json.confirmationId ? ` Confirmation: ${json.confirmationId}.` : ""
       }`,
     );
   }
@@ -560,9 +562,10 @@ export function LadwpEzSaveFlow() {
         {step === "handoff" && draft ? (
           <HandoffPanel
             pdfStatus={pdfStatus}
+            receiptUrl={receiptUrl}
             submissionStatus={submissionStatus}
             onBack={() => setStep("review")}
-            onEmailDraft={tryEmailDraft}
+            onFax={tryFax}
             onPdf={tryPdf}
           />
         ) : null}
@@ -781,8 +784,8 @@ function EzSaveFaq() {
         <summary>Does this submit my application automatically?</summary>
         <p>
           Yes. Once your information is entered, there are multiple ways to
-          submit your application, including an email draft generated for you,
-          an automatic fax option, and a filled PDF you can review and send.
+          submit your application, including an automatic fax option and a
+          filled PDF you can review, print, fax, or mail.
         </p>
       </details>
       <details>
@@ -1025,8 +1028,8 @@ function LadwpForm({
             Email for reminders
             <input autoComplete="email" name="email" type="email" placeholder="you@example.com" />
             <span className="muted utility-field-help">
-              Optional. LADWP&apos;s official packet lists online, fax, and mail
-              submission, not email submission.
+              Optional. Used only for app reminders or a copy of your draft.
+              EZ-SAVE submission is by fax or mail.
             </span>
           </label>
           <label>
@@ -1101,7 +1104,7 @@ function LadwpForm({
           </label>
           <label className="toggle-field">
             <input name="consentToContact" type="checkbox" />
-            <span>Email me my application draft or remind me to check my next LADWP bill.</span>
+            <span>Send me a reminder to check my next LADWP bill.</span>
           </label>
         </fieldset>
 
@@ -1313,17 +1316,21 @@ function ReviewPanel({
         />
         <span>I reviewed these answers and want to continue to LADWP.</span>
       </label>
-      <div className="row">
-        <button className="button" type="button" onClick={onCopy}>
-          Copy all answers
-        </button>
+      <div className="row utility-draft-actions">
         <button
-          className="button secondary"
+          className="button"
           disabled={!reviewConfirmed}
           type="button"
           onClick={onContinue}
         >
-          Continue to LADWP
+          Continue
+        </button>
+        <button
+          className="button secondary utility-draft-actions__side"
+          type="button"
+          onClick={onCopy}
+        >
+          Copy all answers
         </button>
         <button className="button secondary" type="button" onClick={onBack}>
           Back
@@ -1342,50 +1349,103 @@ function ReviewPanel({
 
 function HandoffPanel({
   pdfStatus,
+  receiptUrl,
   submissionStatus,
   onBack,
-  onEmailDraft,
+  onFax,
   onPdf,
 }: {
   pdfStatus: string;
+  receiptUrl: string;
   submissionStatus: string;
   onBack: () => void;
-  onEmailDraft: () => void;
+  onFax: (signature: {
+    signerName: string;
+    signerEmail?: string | null;
+    consentAccepted: boolean;
+  }) => void;
   onPdf: () => void;
 }) {
+  const [signerName, setSignerName] = useState("");
+  const [signerEmail, setSignerEmail] = useState("");
+  const [consentAccepted, setConsentAccepted] = useState(false);
+  const canFax = signerName.trim() && consentAccepted;
+
   return (
     <section className="utility-result">
       <div className="utility-result__header">
         <p className="kicker">submission handoff</p>
         <h1>Your draft is ready</h1>
         <p className="muted lead">
-          Review the generated packet, then choose how you want to send the
-          information you entered here.
+          Review the generated packet, then fax it to LADWP or print and mail
+          it.
         </p>
       </div>
       <div className="utility-result__grid">
         <section className="utility-result__section">
-          <h2>Email submission</h2>
+          <h2>Automatic fax</h2>
           <p className="muted">
-            Download the packet and open a prewritten email draft. Attach the
-            signed PDF before sending.
+            Send the completed packet directly by fax from this app.
           </p>
-          <button className="button" type="button" onClick={onEmailDraft}>
-            Prepare email submission
+          <p className="muted">Fax: {LADWP_EZ_SAVE_WORKFLOW.faxNumber}</p>
+          <label>
+            Electronic signature
+            <input
+              autoComplete="name"
+              placeholder="Type your full legal name"
+              value={signerName}
+              onChange={(event) => setSignerName(event.currentTarget.value)}
+            />
+          </label>
+          <label>
+            Receipt email
+            <input
+              autoComplete="email"
+              placeholder="Optional"
+              type="email"
+              value={signerEmail}
+              onChange={(event) => setSignerEmail(event.currentTarget.value)}
+            />
+          </label>
+          <label className="toggle-field">
+            <input
+              checked={consentAccepted}
+              type="checkbox"
+              onChange={(event) => setConsentAccepted(event.currentTarget.checked)}
+            />
+            <span>
+              I reviewed this application and authorize this app to apply my
+              electronic signature and fax it to LADWP.
+            </span>
+          </label>
+          <button
+            className="button"
+            disabled={!canFax}
+            type="button"
+            onClick={() =>
+              onFax({
+                signerName: signerName.trim(),
+                signerEmail: signerEmail.trim() || null,
+                consentAccepted,
+              })
+            }
+          >
+            Sign and fax to LADWP
           </button>
           <p className="muted utility-fineprint">
-            {LADWP_EZ_SAVE_WORKFLOW.emailSubmissionNote}
+            A receipt page is created after signing. Fax delivery still depends
+            on the configured provider.
           </p>
         </section>
         <section className="utility-result__section">
           <h2>Download PDF</h2>
           <p className="muted">
-            Save the filled packet so you can sign it and send it yourself by
-            fax or email.
+            Download the filled PDF this app created for you if you want to fax
+            it yourself or print and mail it instead of using automated fax.
           </p>
           <div className="row">
             <button className="button secondary" type="button" onClick={onPdf}>
-              Download PDF for fax or email
+              Download PDF
             </button>
             <button className="button secondary" type="button" onClick={onBack}>
               Edit information
@@ -1398,20 +1458,24 @@ function HandoffPanel({
           {pdfStatus ? <p className="muted">{pdfStatus}</p> : null}
         </section>
         <section className="utility-result__section">
-          <h2>Automatic fax</h2>
+          <h2>Mail instead</h2>
           <p className="muted">
-            Send the completed packet directly by fax from this app.
+            If you do not want to use automated fax, download the PDF above,
+            print it, sign it, and mail the signed application to LADWP.
           </p>
-          <p className="muted">Fax: {LADWP_EZ_SAVE_WORKFLOW.faxNumber}</p>
-          <button className="button secondary" disabled type="button">
-            Automatic fax coming soon
-          </button>
-          <p className="muted utility-fineprint">
-            This is disabled until the automatic fax provider is connected.
-          </p>
+          <address className="muted utility-mail-address">
+            {LADWP_EZ_SAVE_WORKFLOW.mailAddress.map((line) => (
+              <span key={line}>{line}</span>
+            ))}
+          </address>
         </section>
       </div>
       {submissionStatus ? <p className="privacy-notice">{submissionStatus}</p> : null}
+      {receiptUrl ? (
+        <a className="button secondary utility-receipt-link" href={receiptUrl}>
+          View receipt
+        </a>
+      ) : null}
       <div className="row">
         <button className="button secondary" type="button" onClick={onBack}>
           Edit information
