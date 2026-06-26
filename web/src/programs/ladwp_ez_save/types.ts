@@ -30,7 +30,6 @@ export type LadwpEzSaveInput = {
   claimedAsDependent?: boolean;
   newApplicationOrRenewal?: "new_application" | "renewal";
   consentToPrepareApplication?: boolean;
-  userCertifiesReviewRequired?: boolean;
   email?: string;
   accountNumber?: string;
   includeAccountNumberInDraft?: boolean;

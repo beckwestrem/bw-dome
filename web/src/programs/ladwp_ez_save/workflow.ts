@@ -51,7 +51,6 @@ export const LADWP_EZ_SAVE_WORKFLOW = {
     "claimed_as_dependent",
     "new_application_or_renewal",
     "consent_to_prepare_application",
-    "user_certifies_review_required",
   ],
   optionalFields: [
     "middle_initial",
@@ -403,17 +402,6 @@ export const LADWP_EZ_SAVE_FIELDS: LadwpEzSaveWorkflowField[] = [
     canLlmFill: false,
     requiresUserConfirmation: true,
     validation: "Must be true to generate a draft.",
-  },
-  {
-    fieldKey: "user_certifies_review_required",
-    label: "Review required",
-    type: "boolean",
-    required: true,
-    userHelpText: "You must review all answers before applying to LADWP.",
-    sourcePriority: ["user_answer", "manual_edit"],
-    canLlmFill: false,
-    requiresUserConfirmation: true,
-    validation: "Must be true to continue.",
   },
 ];
 

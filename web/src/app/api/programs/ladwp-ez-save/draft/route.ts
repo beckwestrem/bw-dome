@@ -38,7 +38,6 @@ function parseBody(body: Record<string, unknown>): Partial<LadwpEzSaveInput> {
     newApplicationOrRenewal:
       body.newApplicationOrRenewal === "renewal" ? "renewal" : "new_application",
     consentToPrepareApplication: booleanValue(body.consentToPrepareApplication),
-    userCertifiesReviewRequired: booleanValue(body.userCertifiesReviewRequired),
     email: stringValue(body.email),
     includeAccountNumberInDraft: booleanValue(body.includeAccountNumberInDraft),
     accountNumber: stringValue(body.accountNumber),

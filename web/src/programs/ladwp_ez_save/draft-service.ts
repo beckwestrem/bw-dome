@@ -128,8 +128,6 @@ function valueForField(input: LadwpEzSaveInput, fieldKey: string): FieldValue {
       return input.pastDueStatus;
     case "consent_to_prepare_application":
       return input.consentToPrepareApplication;
-    case "user_certifies_review_required":
-      return input.userCertifiesReviewRequired;
     default:
       return undefined;
   }

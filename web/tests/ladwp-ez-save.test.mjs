@@ -106,7 +106,6 @@ async function sampleLadwpDraft() {
     claimedAsDependent: false,
     newApplicationOrRenewal: "new_application",
     consentToPrepareApplication: true,
-    userCertifiesReviewRequired: true,
     accountNumber: "1234567890",
   });
 }

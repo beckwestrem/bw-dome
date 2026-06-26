@@ -54,7 +54,6 @@ export function normalizeLadwpEzSaveInput(
     claimedAsDependent: input.claimedAsDependent,
     newApplicationOrRenewal: input.newApplicationOrRenewal,
     consentToPrepareApplication: input.consentToPrepareApplication,
-    userCertifiesReviewRequired: input.userCertifiesReviewRequired,
     email: input.email?.trim(),
     accountNumber: input.includeAccountNumberInDraft
       ? input.accountNumber?.trim()

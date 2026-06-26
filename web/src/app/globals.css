@@ -1165,6 +1165,33 @@ label {
   gap: 1.65rem;
 }
 
+.utility-tabbar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+  padding: 0.55rem;
+  background: #1a3d3a;
+  border: 1px solid rgba(12, 12, 12, 0.72);
+  box-shadow: 0 14px 42px rgba(12, 12, 12, 0.1);
+}
+
+.utility-tabbar__button {
+  min-height: 2.45rem;
+  border: 1px solid rgba(255, 252, 247, 0.38);
+  background: transparent;
+  color: #fffaf2;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 650;
+  padding: 0.55rem 0.6rem;
+}
+
+.utility-tabbar__button[aria-current="page"] {
+  background: #fffaf2;
+  color: #1a3d3a;
+}
+
 .utility-landing {
   display: grid;
   gap: 1.25rem;
@@ -1318,6 +1345,88 @@ label {
 
 .utility-faq details[open] summary {
   margin-bottom: 0.55rem;
+}
+
+.utility-info-page {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid rgba(12, 12, 12, 0.14);
+  background: rgba(255, 252, 247, 0.68);
+  padding: clamp(1rem, 3vw, 1.35rem);
+}
+
+.utility-info-page__header {
+  display: grid;
+  gap: 0.65rem;
+  max-width: 52rem;
+}
+
+.utility-info-page__header h1 {
+  font-size: clamp(1.85rem, 4vw, 3rem);
+  font-weight: 560;
+  line-height: 1.08;
+}
+
+.utility-info-page__actions {
+  justify-content: flex-start;
+}
+
+.eligibility-chart {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.eligibility-chart__row {
+  display: grid;
+  gap: 0.25rem;
+  border-left: 4px solid var(--accent);
+  background: var(--panel);
+  padding: 0.85rem 0.95rem;
+}
+
+.eligibility-chart__row strong {
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
+.eligibility-chart__row span {
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.utility-income-table {
+  display: grid;
+  gap: 0.75rem;
+  border-top: 2px solid var(--ink);
+  padding-top: 1rem;
+}
+
+.utility-income-table h2 {
+  font-size: clamp(1.05rem, 2.4vw, 1.3rem);
+}
+
+.utility-income-table__grid {
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.utility-income-table__cell {
+  display: grid;
+  gap: 0.2rem;
+  background: var(--card-elevated);
+  border: 1px solid rgba(12, 12, 12, 0.18);
+  padding: 0.7rem;
+}
+
+.utility-income-table__cell span {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.utility-income-table__cell strong {
+  font-size: 1rem;
 }
 
 .utility-card,
@@ -1558,6 +1667,14 @@ label {
 
   .utility-info-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .eligibility-chart {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .utility-income-table__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .utility-form__grid,
