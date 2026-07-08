@@ -18,6 +18,17 @@ function statusLabel(status: string) {
   }
 }
 
+function statusTone(status: string) {
+  switch (status) {
+    case "fax_sent":
+      return "success";
+    case "fax_failed":
+      return "error";
+    default:
+      return "pending";
+  }
+}
+
 export default async function EzSaveReceiptPage({
   params,
 }: {
@@ -37,6 +48,17 @@ export default async function EzSaveReceiptPage({
           <p className="muted lead">
             Keep this page for your records. It does not require an account.
           </p>
+          <div
+            className={`submission-notice submission-notice--${statusTone(
+              submission.status,
+            )}`}
+          >
+            <strong>{statusLabel(submission.status)}</strong>
+            <span>
+              {submission.faxStatusDetail ??
+                "Submission status has been recorded for this application."}
+            </span>
+          </div>
         </div>
 
         <div className="utility-result__grid">

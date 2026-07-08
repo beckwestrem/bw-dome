@@ -12,8 +12,8 @@ import {
   LADWP_EZ_SAVE_CONSENT_VERSION,
   updateEzSaveSubmissionFaxStatus,
 } from "@/programs/ladwp_ez_save/submission-store";
+import { resolveLadwpEzSaveFaxDestination } from "@/programs/ladwp_ez_save/fax-destination";
 import type { LadwpEzSaveApplicationDraft } from "@/programs/ladwp_ez_save/types";
-import { LADWP_EZ_SAVE_WORKFLOW } from "@/programs/ladwp_ez_save/workflow";
 
 function faxProvider() {
   const webhookUrl = process.env.LADWP_EZ_SAVE_FAX_WEBHOOK_URL;
@@ -27,6 +27,7 @@ type FaxRequestBody = {
     signerEmail?: string | null;
     consentAccepted?: boolean;
   };
+  adminFaxTest?: boolean;
 };
 
 export async function POST(request: Request) {
@@ -35,6 +36,7 @@ export async function POST(request: Request) {
     const draft = body.draft;
     const signerName = body.signature?.signerName?.trim();
     const signerEmail = body.signature?.signerEmail?.trim() || null;
+    const faxDestination = resolveLadwpEzSaveFaxDestination(body.adminFaxTest);
 
     if (!draft) {
       return NextResponse.json({ error: "Missing application draft." }, { status: 400 });
@@ -64,6 +66,7 @@ export async function POST(request: Request) {
       signerEmail,
       signedPdf,
       faxProvider: provider ? "webhook" : null,
+      faxNumber: faxDestination.faxNumber,
     });
 
     if (!submission) {
@@ -71,7 +74,7 @@ export async function POST(request: Request) {
         {
           ok: false,
           status: "not_configured",
-          faxNumber: LADWP_EZ_SAVE_WORKFLOW.faxNumber,
+          faxNumber: faxDestination.faxNumber,
           reason:
             "DATABASE_URL is not configured, so this app cannot save a signed submission record yet.",
         },
@@ -83,13 +86,13 @@ export async function POST(request: Request) {
       await updateEzSaveSubmissionFaxStatus(submission.id, {
         status: "fax_failed",
         detail:
-          "Fax provider is not configured yet. The signed PDF record was saved.",
+          `Fax provider is not configured yet. The signed PDF record was saved for ${faxDestination.label}.`,
       });
       return NextResponse.json(
         {
           ok: false,
           status: "not_configured",
-          faxNumber: LADWP_EZ_SAVE_WORKFLOW.faxNumber,
+          faxNumber: faxDestination.faxNumber,
           receiptToken: submission.receiptToken,
           receiptUrl: `/ez-save/receipt/${submission.receiptToken}`,
           reason:
@@ -100,7 +103,7 @@ export async function POST(request: Request) {
     }
 
     const providerResult = await provider.sendFax({
-      to: LADWP_EZ_SAVE_WORKFLOW.faxNumber,
+      to: faxDestination.faxNumber,
       fileName: pdf.fileName,
       pdfBase64: Buffer.from(signedPdf).toString("base64"),
     });
@@ -114,7 +117,7 @@ export async function POST(request: Request) {
         {
           ok: false,
           status: "provider_error",
-          faxNumber: LADWP_EZ_SAVE_WORKFLOW.faxNumber,
+          faxNumber: faxDestination.faxNumber,
           receiptToken: submission.receiptToken,
           receiptUrl: `/ez-save/receipt/${submission.receiptToken}`,
           reason: updated?.faxStatusDetail ?? providerResult.reason,
@@ -126,12 +129,12 @@ export async function POST(request: Request) {
     const updated = await updateEzSaveSubmissionFaxStatus(submission.id, {
       status: "fax_sent",
       confirmationId: providerResult.confirmationId,
-      detail: "Fax submitted to LADWP. Keep the confirmation number with your records.",
+      detail: `Fax submitted to ${faxDestination.label}. Keep the confirmation number with your records.`,
     });
     return NextResponse.json({
       ok: true,
       status: "fax_sent",
-      faxNumber: LADWP_EZ_SAVE_WORKFLOW.faxNumber,
+      faxNumber: faxDestination.faxNumber,
       confirmationId: providerResult.confirmationId,
       receiptToken: submission.receiptToken,
       receiptUrl: `/ez-save/receipt/${submission.receiptToken}`,

@@ -7,6 +7,7 @@ import {
   LADWP_EZ_SAVE_FIELDS,
   LADWP_EZ_SAVE_WORKFLOW,
 } from "@/programs/ladwp_ez_save/workflow";
+import { ADMIN_TEST_FAX_NUMBER } from "@/programs/ladwp_ez_save/fax-destination";
 import { LADWP_EZ_SAVE_THRESHOLDS } from "@/programs/ladwp_ez_save/rules";
 import type {
   LadwpEzSaveApplicationDraft,
@@ -19,6 +20,11 @@ import type {
 
 type Step = "landing" | "form" | "result" | "review" | "handoff";
 type LandingTab = "home" | "eligibility" | "more";
+type SubmissionNotice = {
+  tone: "pending" | "success" | "error";
+  title: string;
+  message: string;
+};
 
 function textValue(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -42,7 +48,6 @@ function booleanValue(formData: FormData, key: string) {
 }
 
 const SERVICE_STREET_ADDRESS_KEY = "service_address_street";
-
 const serviceStreetAddressDefinition = {
   fieldKey: SERVICE_STREET_ADDRESS_KEY,
   label: "Service street address",
@@ -316,7 +321,7 @@ export function LadwpEzSaveFlow() {
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
   const [pdfStatus, setPdfStatus] = useState("");
-  const [submissionStatus, setSubmissionStatus] = useState("");
+  const [submissionNotice, setSubmissionNotice] = useState<SubmissionNotice | null>(null);
   const [receiptUrl, setReceiptUrl] = useState("");
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -472,7 +477,7 @@ export function LadwpEzSaveFlow() {
   async function tryPdf() {
     if (!draft) return;
     setPdfStatus("Preparing PDF...");
-    setSubmissionStatus("");
+    setSubmissionNotice(null);
     const reviewedDraft = draftWithReviewedValues(draft, draftValues);
     await downloadPdfForDraft(
       reviewedDraft,
@@ -484,17 +489,28 @@ export function LadwpEzSaveFlow() {
     signerName: string;
     signerEmail?: string | null;
     consentAccepted: boolean;
+    adminFaxTest?: boolean;
   }) {
     if (!draft) return;
     const reviewedDraft = draftWithReviewedValues(draft, draftValues);
     setPdfStatus("");
-    setSubmissionStatus("Preparing signed PDF and fax...");
+    setSubmissionNotice({
+      tone: "pending",
+      title: "Preparing fax",
+      message: signature.adminFaxTest
+        ? `Preparing the signed PDF and sending it to the admin test fax number ${ADMIN_TEST_FAX_NUMBER}.`
+        : "Preparing the signed PDF and sending it to the fax provider.",
+    });
     setReceiptUrl("");
 
     const response = await fetch("/api/programs/ladwp-ez-save/submit/fax", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ draft: reviewedDraft, signature }),
+      body: JSON.stringify({
+        draft: reviewedDraft,
+        signature,
+        adminFaxTest: Boolean(signature.adminFaxTest),
+      }),
     });
     const json = (await response.json()) as {
       ok?: boolean;
@@ -503,21 +519,27 @@ export function LadwpEzSaveFlow() {
       error?: string;
       receiptUrl?: string;
       confirmationId?: string;
+      status?: string;
+      faxNumber?: string;
     };
 
     setReceiptUrl(json.receiptUrl ?? "");
     if (!response.ok || !json.ok) {
-      setSubmissionStatus(
-        json.reason ?? json.error ?? "Could not send the fax yet.",
-      );
+      setSubmissionNotice({
+        tone: "error",
+        title: json.status === "not_configured" ? "Fax not enabled" : "Fax not sent",
+        message: json.reason ?? json.error ?? "Could not send the fax yet.",
+      });
       return;
     }
 
-    setSubmissionStatus(
-      `${json.message ?? "Fax submitted to LADWP."}${
+    setSubmissionNotice({
+      tone: "success",
+      title: "Fax sent",
+      message: `${json.message ?? "Fax submitted to LADWP."}${
         json.confirmationId ? ` Confirmation: ${json.confirmationId}.` : ""
-      }`,
-    );
+      }${json.faxNumber ? ` Sent to ${json.faxNumber}.` : ""}`,
+    });
   }
 
   return (
@@ -563,7 +585,7 @@ export function LadwpEzSaveFlow() {
           <HandoffPanel
             pdfStatus={pdfStatus}
             receiptUrl={receiptUrl}
-            submissionStatus={submissionStatus}
+            submissionNotice={submissionNotice}
             onBack={() => setStep("review")}
             onFax={tryFax}
             onPdf={tryPdf}
@@ -811,6 +833,16 @@ function EzSaveFaq() {
           when possible. You can complete the whole workflow manually.
         </p>
       </details>
+      <details id="ladwp-account-number-help">
+        <summary>Do I need my LADWP account number?</summary>
+        <p>
+          It is recommended if you have it because it helps LADWP match the
+          application to the right bill. Look near the top of a paper or PDF
+          LADWP bill, in your LADWP online account, or on a recent LADWP
+          email/notice. You can still prepare the application if you need to
+          find it later.
+        </p>
+      </details>
     </section>
   );
 }
@@ -1051,8 +1083,9 @@ function LadwpForm({
         <fieldset className="utility-programs">
           <legend>Optional bill details</legend>
           <p className="muted utility-fineprint">
-            Only enter your LADWP account number if you want it included in your
-            application draft. We do not need your SSN.
+            Add your LADWP account number if you have it nearby. It helps LADWP
+            match the application to the right bill, but you can keep going if
+            you need to find it later. We do not need your SSN.
           </p>
           <label className="toggle-field">
             <input name="includeAccountNumberInDraft" type="checkbox" />
@@ -1060,12 +1093,33 @@ function LadwpForm({
           </label>
           <label>
             Account number
-            <input name="accountNumber" placeholder="Only if you choose to include it" />
+            <input
+              autoComplete="off"
+              inputMode="numeric"
+              name="accountNumber"
+              placeholder="Printed on your LADWP bill"
+            />
             <span className="muted utility-field-help">
-              This is usually printed near the top of the LADWP bill. Leave it
-              blank if you do not want it in the draft.
+              Look near the top of a LADWP bill, in your LADWP online account,
+              or on a recent LADWP email/notice.
             </span>
           </label>
+          <details className="utility-field-details">
+            <summary>How do I find my account number?</summary>
+            <p>
+              The quickest place is usually the top section of a paper or PDF
+              LADWP bill. If you use LADWP online, check the account overview or
+              billing page. If someone else manages the bill, ask the LADWP
+              customer of record for the account number before submitting.
+            </p>
+            <a
+              href={LADWP_EZ_SAVE_WORKFLOW.applicationUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Open LADWP EZ-SAVE page
+            </a>
+          </details>
           <label>
             Bill upload
             <input
@@ -1350,26 +1404,31 @@ function ReviewPanel({
 function HandoffPanel({
   pdfStatus,
   receiptUrl,
-  submissionStatus,
+  submissionNotice,
   onBack,
   onFax,
   onPdf,
 }: {
   pdfStatus: string;
   receiptUrl: string;
-  submissionStatus: string;
+  submissionNotice: SubmissionNotice | null;
   onBack: () => void;
   onFax: (signature: {
     signerName: string;
     signerEmail?: string | null;
     consentAccepted: boolean;
+    adminFaxTest?: boolean;
   }) => void;
   onPdf: () => void;
 }) {
   const [signerName, setSignerName] = useState("");
   const [signerEmail, setSignerEmail] = useState("");
   const [consentAccepted, setConsentAccepted] = useState(false);
+  const [adminFaxTest, setAdminFaxTest] = useState(false);
   const canFax = signerName.trim() && consentAccepted;
+  const faxDestination = adminFaxTest
+    ? ADMIN_TEST_FAX_NUMBER
+    : LADWP_EZ_SAVE_WORKFLOW.faxNumber;
 
   return (
     <section className="utility-result">
@@ -1388,6 +1447,17 @@ function HandoffPanel({
             Send the completed packet directly by fax from this app.
           </p>
           <p className="muted">Fax: {LADWP_EZ_SAVE_WORKFLOW.faxNumber}</p>
+          <details className="utility-admin-test">
+            <summary>Admin test</summary>
+            <label className="toggle-field">
+              <input
+                checked={adminFaxTest}
+                type="checkbox"
+                onChange={(event) => setAdminFaxTest(event.currentTarget.checked)}
+              />
+              <span>Send this fax to {ADMIN_TEST_FAX_NUMBER}</span>
+            </label>
+          </details>
           <label>
             Electronic signature
             <input
@@ -1427,14 +1497,15 @@ function HandoffPanel({
                 signerName: signerName.trim(),
                 signerEmail: signerEmail.trim() || null,
                 consentAccepted,
+                adminFaxTest,
               })
             }
           >
-            Sign and fax to LADWP
+            {adminFaxTest ? "Sign and send test fax" : "Sign and fax to LADWP"}
           </button>
           <p className="muted utility-fineprint">
             A receipt page is created after signing. Fax delivery still depends
-            on the configured provider.
+            on the configured provider. Destination: {faxDestination}.
           </p>
         </section>
         <section className="utility-result__section">
@@ -1470,7 +1541,15 @@ function HandoffPanel({
           </address>
         </section>
       </div>
-      {submissionStatus ? <p className="privacy-notice">{submissionStatus}</p> : null}
+      {submissionNotice ? (
+        <div
+          className={`submission-notice submission-notice--${submissionNotice.tone}`}
+          role="status"
+        >
+          <strong>{submissionNotice.title}</strong>
+          <span>{submissionNotice.message}</span>
+        </div>
+      ) : null}
       {receiptUrl ? (
         <a className="button secondary utility-receipt-link" href={receiptUrl}>
           View receipt

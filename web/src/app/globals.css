@@ -1531,6 +1531,37 @@ label {
   color: var(--ink);
 }
 
+.submission-notice {
+  display: grid;
+  gap: 0.25rem;
+  border-left: 4px solid var(--accent);
+  background: rgba(26, 61, 58, 0.08);
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  padding: 0.85rem 0.95rem;
+}
+
+.submission-notice strong {
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+
+.submission-notice--success {
+  border-left-color: #1f7a4d;
+  background: rgba(31, 122, 77, 0.1);
+}
+
+.submission-notice--error {
+  border-left-color: #b3261e;
+  background: rgba(179, 38, 30, 0.09);
+}
+
+.submission-notice--pending {
+  border-left-color: #916300;
+  background: rgba(145, 99, 0, 0.1);
+}
+
 .utility-result__header {
   display: grid;
   gap: 0.75rem;
@@ -1554,6 +1585,35 @@ label {
   gap: 0.2rem;
   font-style: normal;
   line-height: 1.45;
+}
+
+.utility-admin-test {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.utility-admin-test summary {
+  cursor: pointer;
+  width: fit-content;
+}
+
+.utility-admin-test .toggle-field {
+  margin-top: 0.5rem;
+}
+
+.utility-field-details {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.utility-field-details summary {
+  cursor: pointer;
+  width: fit-content;
+}
+
+.utility-field-details p {
+  margin: 0.5rem 0;
 }
 
 .utility-hash {

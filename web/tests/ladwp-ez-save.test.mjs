@@ -73,6 +73,9 @@ const pdfModule = loadTs(
 const submissionModule = loadTs(
   path.join(root, "src/programs/ladwp_ez_save/submission-service.ts"),
 );
+const faxDestinationModule = loadTs(
+  path.join(root, "src/programs/ladwp_ez_save/fax-destination.ts"),
+);
 const billExtractionModule = loadTs(
   path.join(root, "src/programs/ladwp_ez_save/bill-extraction-service.ts"),
 );
@@ -82,6 +85,10 @@ const { checkLadwpEzSaveEligibility, getLadwpEzSaveIncomeLimit } = rulesModule;
 const { RulesBasedEzSaveDraftService } = draftModule;
 const { applyElectronicSignatureToPdf, PdfLibEzSavePdfService } = pdfModule;
 const { LadwpFaxSubmissionService } = submissionModule;
+const {
+  ADMIN_TEST_FAX_NUMBER,
+  resolveLadwpEzSaveFaxDestination,
+} = faxDestinationModule;
 const { LocalTextBillExtractionService } = billExtractionModule;
 
 async function sampleLadwpDraft() {
@@ -247,6 +254,18 @@ test("LADWP fax service sends base64 PDF payload through configured provider", a
 
   assert.equal(result.ok, true);
   assert.equal(result.confirmationId, "fax_123");
+});
+
+test("LADWP fax destination defaults to the real program fax unless admin test is enabled", () => {
+  const realDestination = resolveLadwpEzSaveFaxDestination(false);
+  assert.equal(realDestination.faxNumber, LADWP_EZ_SAVE_WORKFLOW.faxNumber);
+  assert.equal(realDestination.label, "LADWP");
+  assert.equal(realDestination.adminTest, false);
+
+  const testDestination = resolveLadwpEzSaveFaxDestination(true);
+  assert.equal(testDestination.faxNumber, ADMIN_TEST_FAX_NUMBER);
+  assert.equal(testDestination.label, "admin test fax");
+  assert.equal(testDestination.adminTest, true);
 });
 
 test("LADWP bill extraction prefills obvious fields from text bills", async () => {

@@ -87,6 +87,7 @@ export async function createEzSaveSubmission(params: {
   signerEmail?: string | null;
   signedPdf: Uint8Array;
   faxProvider?: string | null;
+  faxNumber?: string;
 }): Promise<EzSaveSubmissionRecord | null> {
   if (!postgresEnabled()) return null;
 
@@ -116,7 +117,7 @@ export async function createEzSaveSubmission(params: {
       ${LADWP_EZ_SAVE_CONSENT_TEXT},
       ${LADWP_EZ_SAVE_CONSENT_VERSION},
       now(),
-      ${LADWP_EZ_SAVE_WORKFLOW.faxNumber},
+      ${params.faxNumber ?? LADWP_EZ_SAVE_WORKFLOW.faxNumber},
       ${params.faxProvider ?? null},
       ${pdfSha256(params.signedPdf)},
       ${Buffer.from(params.signedPdf)}
