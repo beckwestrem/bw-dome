@@ -13,7 +13,7 @@ export async function GET(
     return NextResponse.json({ error: "Signed PDF not found." }, { status: 404 });
   }
 
-  return new NextResponse(pdf.bytes, {
+  return new NextResponse(Uint8Array.from(pdf.bytes), {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="${pdf.fileName}"`,
