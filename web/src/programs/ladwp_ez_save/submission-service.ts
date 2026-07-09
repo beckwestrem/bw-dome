@@ -21,6 +21,7 @@ export interface LadwpFaxProvider {
     to: string;
     fileName: string;
     pdfBase64: string;
+    contentUrl?: string;
   }): Promise<{ ok: true; confirmationId: string } | { ok: false; reason: string }>;
 }
 
@@ -35,6 +36,7 @@ export class WebhookFaxProvider implements LadwpFaxProvider {
     to: string;
     fileName: string;
     pdfBase64: string;
+    contentUrl?: string;
   }): Promise<{ ok: true; confirmationId: string } | { ok: false; reason: string }> {
     const response = await fetch(this.webhookUrl, {
       method: "POST",
@@ -53,6 +55,81 @@ export class WebhookFaxProvider implements LadwpFaxProvider {
         typeof json.confirmationId === "string" ? json.confirmationId : "submitted",
     };
   }
+}
+
+export class SinchFaxProvider implements LadwpFaxProvider {
+  constructor(
+    private readonly config: {
+      projectId: string;
+      accessKey: string;
+      accessSecret: string;
+      callbackUrl?: string | null;
+    },
+  ) {}
+
+  async sendFax(input: {
+    to: string;
+    fileName: string;
+    pdfBase64: string;
+    contentUrl?: string;
+  }): Promise<{ ok: true; confirmationId: string } | { ok: false; reason: string }> {
+    if (!input.contentUrl) {
+      return { ok: false, reason: "Sinch Fax requires a public PDF content URL." };
+    }
+
+    const response = await fetch(
+      `https://fax.api.sinch.com/v3/projects/${encodeURIComponent(
+        this.config.projectId,
+      )}/faxes`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${Buffer.from(
+            `${this.config.accessKey}:${this.config.accessSecret}`,
+          ).toString("base64")}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          to: toE164(input.to),
+          contentUrl: input.contentUrl,
+          ...(this.config.callbackUrl
+            ? { callbackUrl: this.config.callbackUrl }
+            : {}),
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      return {
+        ok: false,
+        reason: `Sinch Fax returned ${response.status}.${detail ? ` ${detail}` : ""}`,
+      };
+    }
+
+    const json = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    const confirmationId =
+      stringField(json, "id") ??
+      stringField(json, "faxId") ??
+      stringField(json, "fax_id") ??
+      stringField(json, "confirmationId") ??
+      "submitted";
+    return { ok: true, confirmationId };
+  }
+}
+
+function stringField(value: Record<string, unknown>, key: string) {
+  const field = value[key];
+  return typeof field === "string" && field.trim() ? field : undefined;
+}
+
+function toE164(phone: string) {
+  const trimmed = phone.trim();
+  if (trimmed.startsWith("+")) return trimmed.replace(/[^\d+]/g, "");
+  const digits = trimmed.replace(/\D/g, "");
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  return trimmed;
 }
 
 export class LadwpFaxSubmissionService {

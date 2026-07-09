@@ -33,6 +33,7 @@ function textValue(formData: FormData, key: string) {
 
 function numberValue(formData: FormData, key: string) {
   const rawValue = formData.get(key);
+  if (typeof rawValue === "string" && !rawValue.trim()) return undefined;
   const value =
     typeof rawValue === "string"
       ? Number(rawValue.replace(/[$,]/g, ""))
@@ -436,8 +437,8 @@ export function LadwpEzSaveFlow() {
   const copiedAnswers = useMemo(() => {
     if (!draft) return "";
     return reviewFieldDefinitions().map((field) => {
-      const value = draftValues[field.fieldKey] || "";
-      return `${field.label}: ${value || "[missing]"}`;
+      const value = draftValues[field.fieldKey] ?? "";
+      return `${field.label}: ${value === "" ? "[missing]" : value}`;
     }).join("\n");
   }, [draft, draftValues]);
 

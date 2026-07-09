@@ -5,6 +5,7 @@ import {
   PdfLibEzSavePdfService,
 } from "@/programs/ladwp_ez_save/pdf-service";
 import {
+  SinchFaxProvider,
   WebhookFaxProvider,
 } from "@/programs/ladwp_ez_save/submission-service";
 import {
@@ -16,8 +17,25 @@ import { resolveLadwpEzSaveFaxDestination } from "@/programs/ladwp_ez_save/fax-d
 import type { LadwpEzSaveApplicationDraft } from "@/programs/ladwp_ez_save/types";
 
 function faxProvider() {
+  const sinchProjectId = process.env.SINCH_FAX_PROJECT_ID?.trim();
+  const sinchAccessKey = process.env.SINCH_FAX_ACCESS_KEY?.trim();
+  const sinchAccessSecret = process.env.SINCH_FAX_ACCESS_SECRET?.trim();
+  if (sinchProjectId && sinchAccessKey && sinchAccessSecret) {
+    return {
+      name: "sinch",
+      provider: new SinchFaxProvider({
+        projectId: sinchProjectId,
+        accessKey: sinchAccessKey,
+        accessSecret: sinchAccessSecret,
+        callbackUrl: process.env.SINCH_FAX_CALLBACK_URL?.trim() || null,
+      }),
+    };
+  }
+
   const webhookUrl = process.env.LADWP_EZ_SAVE_FAX_WEBHOOK_URL;
-  return webhookUrl ? new WebhookFaxProvider(webhookUrl) : undefined;
+  return webhookUrl
+    ? { name: "webhook", provider: new WebhookFaxProvider(webhookUrl) }
+    : undefined;
 }
 
 type FaxRequestBody = {
@@ -65,7 +83,7 @@ export async function POST(request: Request) {
       signerName,
       signerEmail,
       signedPdf,
-      faxProvider: provider ? "webhook" : null,
+      faxProvider: provider?.name ?? null,
       faxNumber: faxDestination.faxNumber,
     });
 
@@ -102,10 +120,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const providerResult = await provider.sendFax({
+    const providerResult = await provider.provider.sendFax({
       to: faxDestination.faxNumber,
       fileName: pdf.fileName,
       pdfBase64: Buffer.from(signedPdf).toString("base64"),
+      contentUrl: new URL(
+        `/api/programs/ladwp-ez-save/submission-pdf/${submission.receiptToken}`,
+        request.url,
+      ).toString(),
     });
 
     if (!providerResult.ok) {

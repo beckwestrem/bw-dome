@@ -32,6 +32,11 @@ export type EzSaveSubmissionRecord = {
   updatedAt: string;
 };
 
+export type EzSaveSignedPdfRecord = {
+  fileName: string;
+  bytes: Buffer;
+};
+
 type SubmissionRow = {
   id: string;
   receipt_token: string;
@@ -181,4 +186,24 @@ export async function getEzSaveSubmissionByReceiptToken(
     WHERE receipt_token = ${receiptToken}
   `;
   return row ? rowToRecord(row) : null;
+}
+
+export async function getEzSaveSignedPdfByReceiptToken(
+  receiptToken: string,
+): Promise<EzSaveSignedPdfRecord | null> {
+  if (!postgresEnabled()) return null;
+
+  const sql = getSql();
+  await ensureSchema(sql);
+  const [row] = await sql<{ signed_pdf: Buffer | null }[]>`
+    SELECT signed_pdf
+    FROM ez_save_submissions
+    WHERE receipt_token = ${receiptToken}
+  `;
+
+  if (!row?.signed_pdf) return null;
+  return {
+    fileName: "ladwp-ez-save-application-signed.pdf",
+    bytes: row.signed_pdf,
+  };
 }

@@ -84,7 +84,7 @@ const { LADWP_EZ_SAVE_FIELDS, LADWP_EZ_SAVE_WORKFLOW } = workflowModule;
 const { checkLadwpEzSaveEligibility, getLadwpEzSaveIncomeLimit } = rulesModule;
 const { RulesBasedEzSaveDraftService } = draftModule;
 const { applyElectronicSignatureToPdf, PdfLibEzSavePdfService } = pdfModule;
-const { LadwpFaxSubmissionService } = submissionModule;
+const { LadwpFaxSubmissionService, SinchFaxProvider } = submissionModule;
 const {
   ADMIN_TEST_FAX_NUMBER,
   resolveLadwpEzSaveFaxDestination,
@@ -266,6 +266,55 @@ test("LADWP fax destination defaults to the real program fax unless admin test i
   assert.equal(testDestination.faxNumber, ADMIN_TEST_FAX_NUMBER);
   assert.equal(testDestination.label, "admin test fax");
   assert.equal(testDestination.adminTest, true);
+});
+
+test("Sinch fax provider sends content URL with project-scoped API auth", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url, init });
+    return {
+      ok: true,
+      async json() {
+        return { id: "sinch_fax_123" };
+      },
+    };
+  };
+
+  try {
+    const provider = new SinchFaxProvider({
+      projectId: "project_123",
+      accessKey: "key_123",
+      accessSecret: "secret_123",
+      callbackUrl: "https://example.com/fax-callback",
+    });
+
+    const result = await provider.sendFax({
+      to: "(844) 652-1615",
+      fileName: "application.pdf",
+      pdfBase64: Buffer.from("%PDF").toString("base64"),
+      contentUrl: "https://example.com/application.pdf",
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.confirmationId, "sinch_fax_123");
+    assert.equal(
+      calls[0].url,
+      "https://fax.api.sinch.com/v3/projects/project_123/faxes",
+    );
+    assert.equal(calls[0].init.method, "POST");
+    assert.equal(
+      calls[0].init.headers.Authorization,
+      `Basic ${Buffer.from("key_123:secret_123").toString("base64")}`,
+    );
+    assert.deepEqual(JSON.parse(calls[0].init.body), {
+      to: "+18446521615",
+      contentUrl: "https://example.com/application.pdf",
+      callbackUrl: "https://example.com/fax-callback",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("LADWP bill extraction prefills obvious fields from text bills", async () => {

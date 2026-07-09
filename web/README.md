@@ -138,7 +138,7 @@ When `DATABASE_URL` is set, the app uses Postgres for accounts, transactions, se
 
 Without `DATABASE_URL`, the app uses local JSON storage at `web/data/app-data.json`.
 
-LADWP EZ-SAVE automatic fax requires `DATABASE_URL` so the app can keep a receipt-token submission record. Set `LADWP_EZ_SAVE_FAX_WEBHOOK_URL` when a fax provider or fax relay is ready; without it, the app saves the signed submission record and reports fax delivery as not configured.
+LADWP EZ-SAVE automatic fax requires `DATABASE_URL` so the app can keep a receipt-token submission record. Set `SINCH_FAX_PROJECT_ID`, `SINCH_FAX_ACCESS_KEY`, and `SINCH_FAX_ACCESS_SECRET` for Sinch Fax API delivery. `SINCH_FAX_CALLBACK_URL` is optional. The older `LADWP_EZ_SAVE_FAX_WEBHOOK_URL` fallback is still supported for a custom fax relay.
 
 ## Email Digests
 
