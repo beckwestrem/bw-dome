@@ -56,6 +56,23 @@ function faxProvider() {
     : undefined;
 }
 
+function publicAppOrigin(request: Request) {
+  const configuredOrigin =
+    process.env.PUBLIC_APP_URL?.trim() || process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (configuredOrigin) return configuredOrigin.replace(/\/+$/, "");
+
+  const railwayDomain = process.env.RAILWAY_PUBLIC_DOMAIN?.trim();
+  if (railwayDomain) return `https://${railwayDomain.replace(/^https?:\/\//, "")}`;
+
+  const forwardedHost = request.headers.get("x-forwarded-host")?.trim();
+  if (forwardedHost) {
+    const forwardedProto = request.headers.get("x-forwarded-proto")?.trim() || "https";
+    return `${forwardedProto}://${forwardedHost}`;
+  }
+
+  return new URL(request.url).origin;
+}
+
 type FaxRequestBody = {
   draft?: LadwpEzSaveApplicationDraft;
   signature?: {
@@ -144,7 +161,7 @@ export async function POST(request: Request) {
       pdfBase64: Buffer.from(signedPdf).toString("base64"),
       contentUrl: new URL(
         `/api/programs/ladwp-ez-save/submission-pdf/${submission.receiptToken}`,
-        request.url,
+        publicAppOrigin(request),
       ).toString(),
     });
 
