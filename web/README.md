@@ -138,7 +138,7 @@ When `DATABASE_URL` is set, the app uses Postgres for accounts, transactions, se
 
 Without `DATABASE_URL`, the app uses local JSON storage at `web/data/app-data.json`.
 
-LADWP EZ-SAVE automatic fax requires `DATABASE_URL` so the app can keep a receipt-token submission record. Set `SINCH_FAX_PROJECT_ID`, `SINCH_FAX_ACCESS_KEY`, and `SINCH_FAX_ACCESS_SECRET` for Sinch Fax API delivery. `SINCH_FAX_CALLBACK_URL` is optional. The older `LADWP_EZ_SAVE_FAX_WEBHOOK_URL` fallback is still supported for a custom fax relay.
+LADWP EZ-SAVE automatic fax requires `DATABASE_URL` so the app can keep a receipt-token submission record. For Telnyx Programmable Fax, set `TELNYX_API_KEY`, `TELNYX_FAX_CONNECTION_ID`, and `TELNYX_FAX_FROM_NUMBER`; `TELNYX_FAX_WEBHOOK_URL` is optional and defaults to `https://buffalo.up.railway.app/api/webhooks/telnyx/fax`. Telnyx is used before Sinch when configured. For Sinch Fax API delivery, set `SINCH_FAX_PROJECT_ID`, `SINCH_FAX_ACCESS_KEY`, and `SINCH_FAX_ACCESS_SECRET`; `SINCH_FAX_CALLBACK_URL` is optional. The older `LADWP_EZ_SAVE_FAX_WEBHOOK_URL` fallback is still supported for a custom fax relay.
 
 ## Email Digests
 

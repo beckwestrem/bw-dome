@@ -118,6 +118,63 @@ export class SinchFaxProvider implements LadwpFaxProvider {
   }
 }
 
+export class TelnyxFaxProvider implements LadwpFaxProvider {
+  constructor(
+    private readonly config: {
+      apiKey: string;
+      connectionId: string;
+      fromNumber: string;
+      webhookUrl?: string | null;
+    },
+  ) {}
+
+  async sendFax(input: {
+    to: string;
+    fileName: string;
+    pdfBase64: string;
+    contentUrl?: string;
+  }): Promise<{ ok: true; confirmationId: string } | { ok: false; reason: string }> {
+    if (!input.contentUrl) {
+      return { ok: false, reason: "Telnyx Fax requires a public PDF content URL." };
+    }
+
+    const response = await fetch("https://api.telnyx.com/v2/faxes", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.config.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        connection_id: this.config.connectionId,
+        from: toE164(this.config.fromNumber),
+        to: toE164(input.to),
+        media_url: input.contentUrl,
+        ...(this.config.webhookUrl ? { webhook_url: this.config.webhookUrl } : {}),
+      }),
+    });
+
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      return {
+        ok: false,
+        reason: `Telnyx Fax returned ${response.status}.${detail ? ` ${detail}` : ""}`,
+      };
+    }
+
+    const json = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    const data = json.data && typeof json.data === "object"
+      ? (json.data as Record<string, unknown>)
+      : undefined;
+    const confirmationId =
+      (data ? stringField(data, "id") : undefined) ??
+      stringField(json, "id") ??
+      stringField(json, "fax_id") ??
+      stringField(json, "confirmationId") ??
+      "submitted";
+    return { ok: true, confirmationId };
+  }
+}
+
 function stringField(value: Record<string, unknown>, key: string) {
   const field = value[key];
   return typeof field === "string" && field.trim() ? field : undefined;

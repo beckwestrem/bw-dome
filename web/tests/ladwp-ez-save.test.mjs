@@ -84,7 +84,8 @@ const { LADWP_EZ_SAVE_FIELDS, LADWP_EZ_SAVE_WORKFLOW } = workflowModule;
 const { checkLadwpEzSaveEligibility, getLadwpEzSaveIncomeLimit } = rulesModule;
 const { RulesBasedEzSaveDraftService } = draftModule;
 const { applyElectronicSignatureToPdf, PdfLibEzSavePdfService } = pdfModule;
-const { LadwpFaxSubmissionService, SinchFaxProvider } = submissionModule;
+const { LadwpFaxSubmissionService, SinchFaxProvider, TelnyxFaxProvider } =
+  submissionModule;
 const {
   ADMIN_TEST_FAX_NUMBER,
   resolveLadwpEzSaveFaxDestination,
@@ -311,6 +312,51 @@ test("Sinch fax provider sends content URL with project-scoped API auth", async 
       to: "+18446521615",
       contentUrl: "https://example.com/application.pdf",
       callbackUrl: "https://example.com/fax-callback",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Telnyx fax provider sends media URL with bearer auth", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url, init });
+    return {
+      ok: true,
+      async json() {
+        return { data: { id: "telnyx_fax_123" } };
+      },
+    };
+  };
+
+  try {
+    const provider = new TelnyxFaxProvider({
+      apiKey: "telnyx_key_123",
+      connectionId: "connection_123",
+      fromNumber: "(213) 555-0101",
+      webhookUrl: "https://example.com/telnyx-fax-webhook",
+    });
+
+    const result = await provider.sendFax({
+      to: "(844) 652-1615",
+      fileName: "application.pdf",
+      pdfBase64: Buffer.from("%PDF").toString("base64"),
+      contentUrl: "https://example.com/application.pdf",
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.confirmationId, "telnyx_fax_123");
+    assert.equal(calls[0].url, "https://api.telnyx.com/v2/faxes");
+    assert.equal(calls[0].init.method, "POST");
+    assert.equal(calls[0].init.headers.Authorization, "Bearer telnyx_key_123");
+    assert.deepEqual(JSON.parse(calls[0].init.body), {
+      connection_id: "connection_123",
+      from: "+12135550101",
+      to: "+18446521615",
+      media_url: "https://example.com/application.pdf",
+      webhook_url: "https://example.com/telnyx-fax-webhook",
     });
   } finally {
     globalThis.fetch = originalFetch;

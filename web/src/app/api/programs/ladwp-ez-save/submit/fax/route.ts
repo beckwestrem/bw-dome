@@ -6,6 +6,7 @@ import {
 } from "@/programs/ladwp_ez_save/pdf-service";
 import {
   SinchFaxProvider,
+  TelnyxFaxProvider,
   WebhookFaxProvider,
 } from "@/programs/ladwp_ez_save/submission-service";
 import {
@@ -17,6 +18,23 @@ import { resolveLadwpEzSaveFaxDestination } from "@/programs/ladwp_ez_save/fax-d
 import type { LadwpEzSaveApplicationDraft } from "@/programs/ladwp_ez_save/types";
 
 function faxProvider() {
+  const telnyxApiKey = process.env.TELNYX_API_KEY?.trim();
+  const telnyxConnectionId = process.env.TELNYX_FAX_CONNECTION_ID?.trim();
+  const telnyxFromNumber = process.env.TELNYX_FAX_FROM_NUMBER?.trim();
+  if (telnyxApiKey && telnyxConnectionId && telnyxFromNumber) {
+    return {
+      name: "telnyx",
+      provider: new TelnyxFaxProvider({
+        apiKey: telnyxApiKey,
+        connectionId: telnyxConnectionId,
+        fromNumber: telnyxFromNumber,
+        webhookUrl:
+          process.env.TELNYX_FAX_WEBHOOK_URL?.trim() ||
+          "https://buffalo.up.railway.app/api/webhooks/telnyx/fax",
+      }),
+    };
+  }
+
   const sinchProjectId = process.env.SINCH_FAX_PROJECT_ID?.trim();
   const sinchAccessKey = process.env.SINCH_FAX_ACCESS_KEY?.trim();
   const sinchAccessSecret = process.env.SINCH_FAX_ACCESS_SECRET?.trim();
