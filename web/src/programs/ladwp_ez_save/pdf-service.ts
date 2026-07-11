@@ -138,25 +138,36 @@ export async function applyElectronicSignatureToPdf(
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.load(pdfBytes);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const page = pdfDoc.getPage(0);
-  const { height } = page.getSize();
-  const signedAt = signature.signedAt.toISOString();
+  const signedDate = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  }).format(signature.signedAt);
 
-  page.drawText(`Electronically signed by ${signature.signerName}`, {
-    x: 70,
-    y: topLeftY(height, 682, 0),
-    size: 10,
-    font: boldFont,
+  page.drawText(signature.signerName, {
+    x: 91,
+    y: 50,
+    size: 11,
+    font,
     color: TEXT_COLOR,
   });
-  page.drawText(`Signed at ${signedAt} | Consent ${signature.consentVersion}`, {
-    x: 70,
-    y: topLeftY(height, 697, 0),
-    size: 7,
+  page.drawText(signedDate, {
+    x: 407,
+    y: 50,
+    size: 10,
     font,
     color: TEXT_COLOR,
   });
 
   return pdfDoc.save();
+}
+
+export async function firstPageOnlyPdf(pdfBytes: Uint8Array): Promise<Uint8Array> {
+  const source = await PDFDocument.load(pdfBytes);
+  const faxPdf = await PDFDocument.create();
+  const [firstPage] = await faxPdf.copyPages(source, [0]);
+  faxPdf.addPage(firstPage);
+  return faxPdf.save();
 }

@@ -83,7 +83,11 @@ const billExtractionModule = loadTs(
 const { LADWP_EZ_SAVE_FIELDS, LADWP_EZ_SAVE_WORKFLOW } = workflowModule;
 const { checkLadwpEzSaveEligibility, getLadwpEzSaveIncomeLimit } = rulesModule;
 const { RulesBasedEzSaveDraftService } = draftModule;
-const { applyElectronicSignatureToPdf, PdfLibEzSavePdfService } = pdfModule;
+const {
+  applyElectronicSignatureToPdf,
+  firstPageOnlyPdf,
+  PdfLibEzSavePdfService,
+} = pdfModule;
 const { LadwpFaxSubmissionService, SinchFaxProvider, TelnyxFaxProvider } =
   submissionModule;
 const {
@@ -216,6 +220,19 @@ test("LADWP PDF service applies electronic signature overlay", async () => {
 
   assert.ok(signed.length > result.bytes.length);
   assert.equal(Buffer.from(signed).subarray(0, 4).toString(), "%PDF");
+});
+
+test("LADWP fax PDF contains only the application page", async () => {
+  const pdfService = new PdfLibEzSavePdfService();
+  const result = await pdfService.fillApplicationPdf(await sampleLadwpDraft());
+  assert.equal(result.ok, true);
+
+  const faxPdf = await firstPageOnlyPdf(result.bytes);
+  const fullDocument = await require("pdf-lib").PDFDocument.load(result.bytes);
+  const faxDocument = await require("pdf-lib").PDFDocument.load(faxPdf);
+
+  assert.equal(fullDocument.getPageCount(), 2);
+  assert.equal(faxDocument.getPageCount(), 1);
 });
 
 test("LADWP fax service reports not configured without a provider", async () => {

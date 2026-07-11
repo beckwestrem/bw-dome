@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 
+import { firstPageOnlyPdf } from "@/programs/ladwp_ez_save/pdf-service";
 import { getEzSaveSignedPdfByReceiptToken } from "@/programs/ladwp_ez_save/submission-store";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ token: string }> },
 ) {
   const { token } = await params;
@@ -13,10 +14,17 @@ export async function GET(
     return NextResponse.json({ error: "Signed PDF not found." }, { status: 404 });
   }
 
-  return new NextResponse(Uint8Array.from(pdf.bytes), {
+  const faxOnly = new URL(request.url).searchParams.get("fax") === "1";
+  const bytes = faxOnly
+    ? await firstPageOnlyPdf(Uint8Array.from(pdf.bytes))
+    : Uint8Array.from(pdf.bytes);
+
+  return new NextResponse(bytes, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="${pdf.fileName}"`,
+      "Content-Disposition": `inline; filename="${
+        faxOnly ? "ladwp-ez-save-application-fax.pdf" : pdf.fileName
+      }"`,
       "Cache-Control": "private, no-store",
     },
   });

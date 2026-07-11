@@ -160,7 +160,7 @@ export async function POST(request: Request) {
       fileName: pdf.fileName,
       pdfBase64: Buffer.from(signedPdf).toString("base64"),
       contentUrl: new URL(
-        `/api/programs/ladwp-ez-save/submission-pdf/${submission.receiptToken}`,
+        `/api/programs/ladwp-ez-save/submission-pdf/${submission.receiptToken}?fax=1`,
         publicAppOrigin(request),
       ).toString(),
     });
