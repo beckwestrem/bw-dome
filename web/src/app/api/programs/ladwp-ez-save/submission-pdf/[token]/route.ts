@@ -18,8 +18,10 @@ export async function GET(
   const bytes = faxOnly
     ? await firstPageOnlyPdf(Uint8Array.from(pdf.bytes))
     : Uint8Array.from(pdf.bytes);
+  const responseBody = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(responseBody).set(bytes);
 
-  return new NextResponse(bytes, {
+  return new NextResponse(responseBody, {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="${
