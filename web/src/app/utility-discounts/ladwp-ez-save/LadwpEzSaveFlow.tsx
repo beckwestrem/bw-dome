@@ -1,14 +1,15 @@
 "use client";
 
-import { FormEvent, useMemo, useRef, useState } from "react";
-import type { Dispatch, SetStateAction } from "react";
+import { FormEvent, useRef, useState } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
+import { ArrowRight, Download, Info, Send, Upload } from "lucide-react";
 
+import { EzBrand, EzRadioGroup, EzStatusBanner, EzStepIndicator } from "@/app/components/EzUi";
+import { ADMIN_TEST_FAX_NUMBER } from "@/programs/ladwp_ez_save/fax-destination";
 import {
   LADWP_EZ_SAVE_FIELDS,
   LADWP_EZ_SAVE_WORKFLOW,
 } from "@/programs/ladwp_ez_save/workflow";
-import { ADMIN_TEST_FAX_NUMBER } from "@/programs/ladwp_ez_save/fax-destination";
-import { LADWP_EZ_SAVE_THRESHOLDS } from "@/programs/ladwp_ez_save/rules";
 import type {
   LadwpEzSaveApplicationDraft,
   LadwpEzSaveBillExtractedField,
@@ -18,13 +19,34 @@ import type {
   LadwpEzSaveInput,
 } from "@/programs/ladwp_ez_save/types";
 
-type Step = "landing" | "form" | "result" | "review" | "handoff";
-type LandingTab = "home" | "eligibility" | "more";
+type Step = "eligibility" | "application" | "review" | "submit";
 type SubmissionNotice = {
   tone: "pending" | "success" | "error";
   title: string;
   message: string;
 };
+
+const SERVICE_STREET_ADDRESS_KEY = "service_address_street";
+const yesNo = [
+  { label: "Yes", value: "yes" as const },
+  { label: "No", value: "no" as const },
+];
+const yesNoUnsure = [
+  ...yesNo,
+  { label: "Not sure", value: "" as const },
+];
+
+const serviceStreetAddressDefinition = {
+  fieldKey: SERVICE_STREET_ADDRESS_KEY,
+  label: "Service street address",
+  type: "text",
+  required: true,
+  userHelpText: "Use the street address for the home receiving LADWP service.",
+  sourcePriority: ["user_answer", "uploaded_bill", "manual_edit"],
+  canLlmFill: true,
+  requiresUserConfirmation: true,
+  validation: "Street number and street name text.",
+} satisfies (typeof LADWP_EZ_SAVE_FIELDS)[number];
 
 function textValue(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -34,10 +56,9 @@ function textValue(formData: FormData, key: string) {
 function numberValue(formData: FormData, key: string) {
   const rawValue = formData.get(key);
   if (typeof rawValue === "string" && !rawValue.trim()) return undefined;
-  const value =
-    typeof rawValue === "string"
-      ? Number(rawValue.replace(/[$,]/g, ""))
-      : Number(rawValue);
+  const value = typeof rawValue === "string"
+    ? Number(rawValue.replace(/[$,]/g, ""))
+    : Number(rawValue);
   return Number.isFinite(value) && value >= 0 ? value : undefined;
 }
 
@@ -48,70 +69,25 @@ function booleanValue(formData: FormData, key: string) {
   return undefined;
 }
 
-const SERVICE_STREET_ADDRESS_KEY = "service_address_street";
-const serviceStreetAddressDefinition = {
-  fieldKey: SERVICE_STREET_ADDRESS_KEY,
-  label: "Service street address",
-  type: "text",
-  required: true,
-  userHelpText:
-    "Use the street address for the home receiving LADWP service, including the number, direction, street name, and suffix if they appear on the bill.",
-  sourcePriority: ["user_answer", "uploaded_bill", "manual_edit"],
-  canLlmFill: true,
-  requiresUserConfirmation: true,
-  validation: "Street number and street name text.",
-} satisfies (typeof LADWP_EZ_SAVE_FIELDS)[number];
+function booleanFormValue(value: boolean | undefined) {
+  if (value === true) return "yes";
+  if (value === false) return "no";
+  return "";
+}
 
 function splitServiceStreetAddress(value: string | undefined) {
   const address = value?.trim();
-  if (!address) {
-    return {
-      serviceAddressStreetNumber: undefined,
-      serviceAddressStreetName: undefined,
-    };
-  }
-
+  if (!address) return { serviceAddressStreetNumber: undefined, serviceAddressStreetName: undefined };
   const match = address.match(/^(\S+)\s+(.+)$/);
-  if (!match) {
-    return {
-      serviceAddressStreetNumber: undefined,
-      serviceAddressStreetName: address,
-    };
-  }
-
-  return {
-    serviceAddressStreetNumber: match[1],
-    serviceAddressStreetName: match[2].trim(),
-  };
+  if (!match) return { serviceAddressStreetNumber: undefined, serviceAddressStreetName: address };
+  return { serviceAddressStreetNumber: match[1], serviceAddressStreetName: match[2].trim() };
 }
 
 function formatServiceStreetAddress(values: Record<string, string>) {
-  return [
-    values.service_address_street_number,
-    values.service_address_street_name,
-  ]
+  return [values.service_address_street_number, values.service_address_street_name]
     .filter(Boolean)
     .join(" ")
     .trim();
-}
-
-function statusTitle(status: LadwpEzSaveEligibilityResult["status"]) {
-  switch (status) {
-    case "SUPPORTED_LIKELY_ELIGIBLE":
-      return "Likely eligible for EZ-SAVE";
-    case "SUPPORTED_POSSIBLY_ELIGIBLE_NEEDS_REVIEW":
-      return "Possibly eligible, needs review";
-    case "SUPPORTED_UNLIKELY_ELIGIBLE":
-      return "Probably not eligible";
-    case "UNSUPPORTED_NOT_LADWP":
-      return "LADWP customers only";
-    case "UNSUPPORTED_NOT_CUSTOMER_OF_RECORD":
-      return "Customer of record needs review";
-    case "UNSUPPORTED_NOT_PRIMARY_RESIDENCE":
-      return "Primary residence required";
-    case "UNSUPPORTED_DEPENDENT":
-      return "Dependent status needs review";
-  }
 }
 
 function fieldDefinition(fieldKey: string) {
@@ -124,24 +100,18 @@ function formatValue(value: LadwpEzSaveDraftField["value"] | undefined) {
   return String(value);
 }
 
-function parseDraftValue(
-  rawValue: string,
-  definition: (typeof LADWP_EZ_SAVE_FIELDS)[number],
-): LadwpEzSaveDraftField["value"] | undefined {
+function parseDraftValue(rawValue: string, definition: (typeof LADWP_EZ_SAVE_FIELDS)[number]) {
   const value = rawValue.trim();
   if (!value) return undefined;
-
   if (definition.type === "number") {
     const parsed = Number(value.replace(/,/g, ""));
     return Number.isFinite(parsed) ? parsed : value;
   }
-
   if (definition.type === "boolean") {
     const normalized = value.toLowerCase();
     if (["yes", "true", "y"].includes(normalized)) return true;
     if (["no", "false", "n"].includes(normalized)) return false;
   }
-
   return value;
 }
 
@@ -152,23 +122,19 @@ function draftWithReviewedValues(
   const originalFields = new Map(draft.fields.map((field) => [field.fieldKey, field]));
   const fields: LadwpEzSaveDraftField[] = [];
   const missingFields: string[] = [];
-  const splitAddress = splitServiceStreetAddress(
-    draftValues[SERVICE_STREET_ADDRESS_KEY],
-  );
+  const splitAddress = splitServiceStreetAddress(draftValues[SERVICE_STREET_ADDRESS_KEY]);
 
   for (const definition of LADWP_EZ_SAVE_FIELDS) {
-    const rawValue =
-      definition.fieldKey === "service_address_street_number"
-        ? splitAddress.serviceAddressStreetNumber ?? ""
-        : definition.fieldKey === "service_address_street_name"
-          ? splitAddress.serviceAddressStreetName ?? ""
-          : draftValues[definition.fieldKey] ?? "";
+    const rawValue = definition.fieldKey === "service_address_street_number"
+      ? splitAddress.serviceAddressStreetNumber ?? ""
+      : definition.fieldKey === "service_address_street_name"
+        ? splitAddress.serviceAddressStreetName ?? ""
+        : draftValues[definition.fieldKey] ?? "";
     const value = parseDraftValue(rawValue, definition);
     if (value === undefined) {
       if (definition.required) missingFields.push(definition.fieldKey);
       continue;
     }
-
     const original = originalFields.get(definition.fieldKey);
     fields.push({
       fieldKey: definition.fieldKey,
@@ -180,17 +146,11 @@ function draftWithReviewedValues(
       required: definition.required,
     });
   }
-
   return { ...draft, fields, missingFields };
 }
 
 function apiError(value: unknown): string | null {
-  if (
-    typeof value === "object" &&
-    value !== null &&
-    "error" in value &&
-    typeof value.error === "string"
-  ) {
+  if (typeof value === "object" && value !== null && "error" in value && typeof value.error === "string") {
     return value.error;
   }
   return null;
@@ -214,8 +174,9 @@ const extractableInputNames: Partial<Record<keyof LadwpEzSaveInput, string>> = {
 function setFormControlValue(form: HTMLFormElement, name: string, value: string) {
   const control = form.elements.namedItem(name);
   if (!control) return;
-
-  if (control instanceof HTMLInputElement || control instanceof HTMLSelectElement) {
+  if (control instanceof RadioNodeList) {
+    control.value = value;
+  } else if (control instanceof HTMLInputElement || control instanceof HTMLSelectElement) {
     control.value = value;
   }
 }
@@ -225,62 +186,34 @@ function formatExtractedFieldValue(field: LadwpEzSaveBillExtractedField) {
   return String(field.value);
 }
 
-function applyExtractedFieldsToForm(
-  form: HTMLFormElement,
-  fields: LadwpEzSaveBillExtractedField[],
-) {
+function applyExtractedFieldsToForm(form: HTMLFormElement, fields: LadwpEzSaveBillExtractedField[]) {
   let applied = 0;
-  let serviceAddressStreetNumber = "";
-  let serviceAddressStreetName = "";
-
+  let streetNumber = "";
+  let streetName = "";
   for (const field of fields) {
     if (field.fieldKey === "serviceAddressStreetNumber") {
-      serviceAddressStreetNumber = formatExtractedFieldValue(field);
+      streetNumber = formatExtractedFieldValue(field);
       applied += 1;
       continue;
     }
-
     if (field.fieldKey === "serviceAddressStreetName") {
-      serviceAddressStreetName = formatExtractedFieldValue(field);
+      streetName = formatExtractedFieldValue(field);
       applied += 1;
       continue;
     }
-
     const name = extractableInputNames[field.fieldKey];
     if (!name) continue;
     setFormControlValue(form, name, formatExtractedFieldValue(field));
     applied += 1;
-
-    if (field.fieldKey === "accountNumber") {
-      const includeAccount = form.elements.namedItem("includeAccountNumberInDraft");
-      if (includeAccount instanceof HTMLInputElement) {
-        includeAccount.checked = true;
-      }
-    }
   }
-
-  const serviceStreetAddress = [
-    serviceAddressStreetNumber,
-    serviceAddressStreetName,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
-  if (serviceStreetAddress) {
-    setFormControlValue(form, "serviceStreetAddress", serviceStreetAddress);
-  }
-
+  const serviceAddress = [streetNumber, streetName].filter(Boolean).join(" ").trim();
+  if (serviceAddress) setFormControlValue(form, "serviceStreetAddress", serviceAddress);
   return applied;
 }
 
 function draftValuesFromFields(fields: LadwpEzSaveDraftField[]) {
-  const values = Object.fromEntries(
-    fields.map((field) => [field.fieldKey, formatValue(field.value)]),
-  );
-  return {
-    ...values,
-    [SERVICE_STREET_ADDRESS_KEY]: formatServiceStreetAddress(values),
-  };
+  const values = Object.fromEntries(fields.map((field) => [field.fieldKey, formatValue(field.value)]));
+  return { ...values, [SERVICE_STREET_ADDRESS_KEY]: formatServiceStreetAddress(values) };
 }
 
 function reviewFieldDefinitions() {
@@ -297,26 +230,50 @@ function reviewFieldDefinitions() {
 }
 
 function missingFieldLabel(fieldKey: string) {
-  if (
-    fieldKey === "service_address_street_number" ||
-    fieldKey === "service_address_street_name"
-  ) {
+  if (fieldKey === "service_address_street_number" || fieldKey === "service_address_street_name") {
     return serviceStreetAddressDefinition.label;
   }
   return fieldDefinition(fieldKey)?.label ?? fieldKey;
 }
 
 function selectOptionLabel(value: string) {
-  return value
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
+  return value.split("_").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+}
+
+function reviewDisplayValue(
+  definition: (typeof LADWP_EZ_SAVE_FIELDS)[number],
+  value: string,
+) {
+  if (!value) return "Not provided";
+  if (definition.type === "boolean") {
+    if (value.toLowerCase() === "yes") return "Yes";
+    if (value.toLowerCase() === "no") return "No";
+  }
+  if (definition.type === "select") return selectOptionLabel(value);
+  if (["annual_gross_household_income", "monthly_bill_amount"].includes(definition.fieldKey)) {
+    const amount = Number(value.replace(/[$,]/g, ""));
+    if (Number.isFinite(amount)) {
+      return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+        maximumFractionDigits: 0,
+      }).format(amount);
+    }
+  }
+  return value;
+}
+
+function eligibilityPresentation(result: LadwpEzSaveEligibilityResult) {
+  if (result.confidence === "LIKELY") return { tone: "success" as const, title: "You very likely qualify" };
+  if (result.confidence === "POSSIBLE") return { tone: "warning" as const, title: "You might qualify" };
+  return { tone: "neutral" as const, title: "You probably wouldn’t qualify" };
 }
 
 export function LadwpEzSaveFlow() {
-  const [step, setStep] = useState<Step>("landing");
-  const [landingTab, setLandingTab] = useState<LandingTab>("home");
-  const [result, setResult] = useState<LadwpEzSaveEligibilityResult | null>(null);
+  const [step, setStep] = useState<Step>("eligibility");
+  const [eligibilityAnswers, setEligibilityAnswers] = useState<Partial<LadwpEzSaveInput>>({});
+  const [eligibilityResult, setEligibilityResult] = useState<LadwpEzSaveEligibilityResult | null>(null);
+  const [eligibilityStatus, setEligibilityStatus] = useState("");
   const [draft, setDraft] = useState<LadwpEzSaveApplicationDraft | null>(null);
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("");
@@ -324,133 +281,114 @@ export function LadwpEzSaveFlow() {
   const [pdfStatus, setPdfStatus] = useState("");
   const [submissionNotice, setSubmissionNotice] = useState<SubmissionNotice | null>(null);
   const [receiptUrl, setReceiptUrl] = useState("");
-  const formRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
-  function start() {
-    setStep("form");
-    window.requestAnimationFrame(() => {
-      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+  function changeStep(next: Step) {
+    setStep(next);
+    window.requestAnimationFrame(() => contentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+
+  async function submitEligibility(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const answers: Partial<LadwpEzSaveInput> = {
+      utilityProvider: "LADWP",
+      isLadwpCustomer: booleanValue(formData, "isLadwpCustomer"),
+      householdTotal: numberValue(formData, "householdTotal"),
+      annualGrossHouseholdIncome: numberValue(formData, "annualGrossHouseholdIncome"),
+      isCustomerOfRecord: booleanValue(formData, "isCustomerOfRecord"),
+      isPrimaryResidence: booleanValue(formData, "isPrimaryResidence"),
+      claimedAsDependent: booleanValue(formData, "claimedAsDependent"),
+    };
+    setEligibilityAnswers(answers);
+    setEligibilityStatus("Checking your answers…");
+    setEligibilityResult(null);
+    try {
+      const response = await fetch("/api/programs/ladwp-ez-save/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(answers),
+      });
+      const json = (await response.json()) as LadwpEzSaveEligibilityResult | { error?: string };
+      const error = apiError(json);
+      if (!response.ok || error) {
+        setEligibilityStatus(error ?? "We couldn’t check eligibility right now. You can still continue.");
+        return;
+      }
+      setEligibilityResult(json as LadwpEzSaveEligibilityResult);
+      setEligibilityStatus("");
+    } catch {
+      setEligibilityStatus("We couldn’t connect right now. You can still continue with an application.");
+    }
   }
 
   function collectPayload(formData: FormData): Partial<LadwpEzSaveInput> {
-    const includeAccountNumber = booleanValue(
-      formData,
-      "includeAccountNumberInDraft",
-    );
-    const serviceStreetAddress = splitServiceStreetAddress(
-      textValue(formData, "serviceStreetAddress"),
-    );
-
+    const serviceAddress = splitServiceStreetAddress(textValue(formData, "serviceStreetAddress"));
     return {
+      ...eligibilityAnswers,
       utilityProvider: String(formData.get("utilityProvider") ?? "LADWP"),
-      isLadwpCustomer: booleanValue(formData, "isLadwpCustomer"),
+      isLadwpCustomer: booleanValue(formData, "isLadwpCustomer") ?? eligibilityAnswers.isLadwpCustomer,
       zipCode: textValue(formData, "zipCode"),
       firstName: textValue(formData, "firstName"),
       lastName: textValue(formData, "lastName"),
       middleInitial: textValue(formData, "middleInitial"),
-      serviceAddressStreetNumber: serviceStreetAddress.serviceAddressStreetNumber,
-      serviceAddressStreetName: serviceStreetAddress.serviceAddressStreetName,
+      serviceAddressStreetNumber: serviceAddress.serviceAddressStreetNumber,
+      serviceAddressStreetName: serviceAddress.serviceAddressStreetName,
       apartmentNumber: textValue(formData, "apartmentNumber"),
       phone: textValue(formData, "phone"),
       mobilePhone: textValue(formData, "mobilePhone"),
-      householdTotal: numberValue(formData, "householdTotal"),
+      householdTotal: numberValue(formData, "householdTotal") ?? eligibilityAnswers.householdTotal,
       householdAdults: numberValue(formData, "householdAdults"),
       householdChildren: numberValue(formData, "householdChildren"),
-      annualGrossHouseholdIncome: numberValue(
-        formData,
-        "annualGrossHouseholdIncome",
-      ),
-      isCustomerOfRecord: booleanValue(formData, "isCustomerOfRecord"),
-      isPrimaryResidence: booleanValue(formData, "isPrimaryResidence"),
-      claimedAsDependent: booleanValue(formData, "claimedAsDependent"),
-      newApplicationOrRenewal:
-        formData.get("newApplicationOrRenewal") === "renewal"
-          ? "renewal"
-          : "new_application",
-      consentToPrepareApplication: booleanValue(
-        formData,
-        "consentToPrepareApplication",
-      ),
+      annualGrossHouseholdIncome: numberValue(formData, "annualGrossHouseholdIncome") ?? eligibilityAnswers.annualGrossHouseholdIncome,
+      isCustomerOfRecord: booleanValue(formData, "isCustomerOfRecord") ?? eligibilityAnswers.isCustomerOfRecord,
+      isPrimaryResidence: booleanValue(formData, "isPrimaryResidence") ?? eligibilityAnswers.isPrimaryResidence,
+      claimedAsDependent: booleanValue(formData, "claimedAsDependent") ?? eligibilityAnswers.claimedAsDependent,
+      newApplicationOrRenewal: formData.get("newApplicationOrRenewal") === "renewal" ? "renewal" : "new_application",
+      consentToPrepareApplication: booleanValue(formData, "consentToPrepareApplication"),
       email: textValue(formData, "email"),
-      includeAccountNumberInDraft: includeAccountNumber,
-      accountNumber: includeAccountNumber
-        ? textValue(formData, "accountNumber")
-        : undefined,
+      includeAccountNumberInDraft: true,
+      accountNumber: textValue(formData, "accountNumber"),
       monthlyBillAmount: numberValue(formData, "monthlyBillAmount"),
       pastDueStatus: booleanValue(formData, "pastDueStatus"),
       consentToContact: booleanValue(formData, "consentToContact"),
     };
   }
 
-  async function submitCheck(event: FormEvent<HTMLFormElement>) {
+  async function submitApplication(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
-    setStatus("Checking EZ-SAVE…");
+    setStatus("Preparing your application…");
     const payload = collectPayload(new FormData(event.currentTarget));
-
     try {
-      const checkResponse = await fetch("/api/programs/ladwp-ez-save/check", {
+      const response = await fetch("/api/programs/ladwp-ez-save/draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const checkJson = (await checkResponse.json()) as
-        | LadwpEzSaveEligibilityResult
-        | { error?: string };
-
-      const checkError = apiError(checkJson);
-      if (!checkResponse.ok || checkError) {
-        setStatus(checkError ?? "Could not check EZ-SAVE right now.");
+      const json = (await response.json()) as LadwpEzSaveApplicationDraft | { error?: string };
+      const error = apiError(json);
+      if (!response.ok || error) {
+        setStatus(error ?? "We couldn’t prepare your application. Please try again.");
         return;
       }
-
-      const draftResponse = await fetch("/api/programs/ladwp-ez-save/draft", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const draftJson = (await draftResponse.json()) as
-        | LadwpEzSaveApplicationDraft
-        | { error?: string };
-
-      const draftError = apiError(draftJson);
-      if (!draftResponse.ok || draftError) {
-        setStatus(draftError ?? "Could not prepare your draft right now.");
-        return;
-      }
-
-      const checkedResult = checkJson as LadwpEzSaveEligibilityResult;
-      const preparedDraft = draftJson as LadwpEzSaveApplicationDraft;
-      setResult(checkedResult);
+      const preparedDraft = json as LadwpEzSaveApplicationDraft;
       setDraft(preparedDraft);
       setDraftValues(draftValuesFromFields(preparedDraft.fields));
-      setStep("result");
       setStatus("");
+      changeStep("review");
     } catch {
-      setStatus("Network error. Try again in a moment.");
+      setStatus("We couldn’t connect. Please try again in a moment.");
     } finally {
       setLoading(false);
     }
   }
 
-  const copiedAnswers = useMemo(() => {
-    if (!draft) return "";
-    return reviewFieldDefinitions().map((field) => {
-      const value = draftValues[field.fieldKey] ?? "";
-      return `${field.label}: ${value === "" ? "[missing]" : value}`;
-    }).join("\n");
-  }, [draft, draftValues]);
-
-  async function copyAnswers() {
-    await navigator.clipboard.writeText(copiedAnswers);
-    setStatus("Answers copied.");
-  }
-
-  async function downloadPdfForDraft(
-    reviewedDraft: LadwpEzSaveApplicationDraft,
-    successMessage: string,
-  ) {
+  async function downloadPdf() {
+    if (!draft) return;
+    setPdfStatus("Preparing your PDF…");
+    setSubmissionNotice(null);
+    const reviewedDraft = draftWithReviewedValues(draft, draftValues);
     const response = await fetch("/api/programs/ladwp-ez-save/pdf", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -458,10 +396,9 @@ export function LadwpEzSaveFlow() {
     });
     if (!response.ok) {
       const json = (await response.json()) as { reason?: string };
-      setPdfStatus(json.reason ?? "PDF generation is not available yet.");
+      setPdfStatus(json.reason ?? "We couldn’t create the PDF right now.");
       return;
     }
-
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -471,22 +408,10 @@ export function LadwpEzSaveFlow() {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-    setPdfStatus(successMessage);
-    return true;
+    setPdfStatus("PDF downloaded. Review and sign it before submitting it to LADWP.");
   }
 
-  async function tryPdf() {
-    if (!draft) return;
-    setPdfStatus("Preparing PDF...");
-    setSubmissionNotice(null);
-    const reviewedDraft = draftWithReviewedValues(draft, draftValues);
-    await downloadPdfForDraft(
-      reviewedDraft,
-      "PDF downloaded. Review it, sign it, then fax it yourself or print and mail it to LADWP.",
-    );
-  }
-
-  async function tryFax(signature: {
+  async function faxApplication(signature: {
     signerName: string;
     signerEmail?: string | null;
     consentAccepted: boolean;
@@ -495,1072 +420,401 @@ export function LadwpEzSaveFlow() {
     if (!draft) return;
     const reviewedDraft = draftWithReviewedValues(draft, draftValues);
     setPdfStatus("");
-    setSubmissionNotice({
-      tone: "pending",
-      title: "Preparing fax",
-      message: signature.adminFaxTest
-        ? `Preparing the signed PDF and sending it to the admin test fax number ${ADMIN_TEST_FAX_NUMBER}.`
-        : "Preparing the signed PDF and sending it to the fax provider.",
-    });
     setReceiptUrl("");
-
+    setSubmissionNotice({ tone: "pending", title: "Sending your application", message: "We’re signing the completed PDF and sending it by fax." });
     const response = await fetch("/api/programs/ladwp-ez-save/submit/fax", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        draft: reviewedDraft,
-        signature,
-        adminFaxTest: Boolean(signature.adminFaxTest),
-      }),
+      body: JSON.stringify({ draft: reviewedDraft, signature, adminFaxTest: Boolean(signature.adminFaxTest) }),
     });
     const json = (await response.json()) as {
-      ok?: boolean;
-      message?: string;
-      reason?: string;
-      error?: string;
-      receiptUrl?: string;
-      confirmationId?: string;
-      status?: string;
-      faxNumber?: string;
+      ok?: boolean; message?: string; reason?: string; error?: string; receiptUrl?: string;
+      confirmationId?: string; status?: string; faxNumber?: string;
     };
-
     setReceiptUrl(json.receiptUrl ?? "");
     if (!response.ok || !json.ok) {
-      setSubmissionNotice({
-        tone: "error",
-        title: json.status === "not_configured" ? "Fax not enabled" : "Fax not sent",
-        message: json.reason ?? json.error ?? "Could not send the fax yet.",
-      });
+      setSubmissionNotice({ tone: "error", title: "Your fax was not sent", message: json.reason ?? json.error ?? "Please try again or download the PDF instead." });
       return;
     }
-
     setSubmissionNotice({
       tone: "success",
-      title: "Fax sent",
-      message: `${json.message ?? "Fax submitted to LADWP."}${
-        json.confirmationId ? ` Confirmation: ${json.confirmationId}.` : ""
-      }${json.faxNumber ? ` Sent to ${json.faxNumber}.` : ""}`,
+      title: "Application faxed to LADWP",
+      message: `${json.message ?? "Your application was sent."}${json.confirmationId ? ` Confirmation: ${json.confirmationId}.` : ""}${json.faxNumber ? ` Destination: ${json.faxNumber}.` : ""}`,
     });
   }
 
   return (
-    <main className="container utility-page">
-      {step === "landing" ? (
-        <>
-          <LandingTabs activeTab={landingTab} onChange={setLandingTab} />
-          {landingTab === "home" ? <LandingHome onStart={start} /> : null}
-          {landingTab === "eligibility" ? <EligibilityCheckInfo onStart={start} /> : null}
-          {landingTab === "more" ? <MoreInfoPage /> : null}
-        </>
-      ) : null}
-
-      <div ref={formRef}>
-        {step === "form" ? (
-          <LadwpForm loading={loading} status={status} onSubmit={submitCheck} />
-        ) : null}
-        {step === "result" && result && draft ? (
-          <ResultPanel
-            result={result}
-            draft={draft}
-            onReview={() => setStep("review")}
-            onReset={() => {
-              setResult(null);
-              setDraft(null);
-              setStep("form");
-            }}
-          />
-        ) : null}
-        {step === "review" && result && draft ? (
-          <ReviewPanel
-            copiedAnswers={copiedAnswers}
-            draft={draft}
-            draftValues={draftValues}
-            setDraftValues={setDraftValues}
-            status={status}
-            onBack={() => setStep("result")}
-            onCopy={copyAnswers}
-            onContinue={() => setStep("handoff")}
-          />
-        ) : null}
-        {step === "handoff" && draft ? (
-          <HandoffPanel
-            pdfStatus={pdfStatus}
-            receiptUrl={receiptUrl}
-            submissionNotice={submissionNotice}
-            onBack={() => setStep("review")}
-            onFax={tryFax}
-            onPdf={tryPdf}
-          />
-        ) : null}
-      </div>
-    </main>
+    <div className="ez-shell ez-app-shell">
+      <header className="ez-app-nav"><div className="ez-container"><EzBrand /><span>Secure application</span></div></header>
+      <main className="ez-app-main" ref={contentRef}>
+        <div className="ez-app-container">
+          <EzStepIndicator current={step === "eligibility" ? 1 : step === "application" ? 2 : step === "review" ? 3 : 4} />
+          {step === "eligibility" ? (
+            <EligibilityStep
+              result={eligibilityResult}
+              status={eligibilityStatus}
+              onSubmit={submitEligibility}
+              onContinue={() => changeStep("application")}
+            />
+          ) : null}
+          {step === "application" ? (
+            <ApplicationForm
+              eligibilityAnswers={eligibilityAnswers}
+              loading={loading}
+              status={status}
+              onBack={() => changeStep("eligibility")}
+              onSubmit={submitApplication}
+            />
+          ) : null}
+          {step === "review" && draft ? (
+            <ReviewPanel
+              draft={draft}
+              draftValues={draftValues}
+              setDraftValues={setDraftValues}
+              onBack={() => changeStep("application")}
+              onContinue={() => changeStep("submit")}
+            />
+          ) : null}
+          {step === "submit" && draft ? (
+            <SubmissionPanel
+              pdfStatus={pdfStatus}
+              receiptUrl={receiptUrl}
+              submissionNotice={submissionNotice}
+              onBack={() => changeStep("review")}
+              onFax={faxApplication}
+              onPdf={downloadPdf}
+            />
+          ) : null}
+        </div>
+      </main>
+    </div>
   );
 }
 
-function LandingTabs({
-  activeTab,
-  onChange,
-}: {
-  activeTab: LandingTab;
-  onChange: (tab: LandingTab) => void;
-}) {
-  const tabs: { key: LandingTab; label: string }[] = [
-    { key: "home", label: "Home" },
-    { key: "eligibility", label: "Eligibility check" },
-    { key: "more", label: "More info" },
-  ];
-
-  return (
-    <nav className="utility-tabbar" aria-label="EZ-SAVE page sections">
-      {tabs.map((tab) => (
-        <button
-          aria-current={activeTab === tab.key ? "page" : undefined}
-          className="utility-tabbar__button"
-          key={tab.key}
-          type="button"
-          onClick={() => onChange(tab.key)}
-        >
-          {tab.label}
-        </button>
-      ))}
-    </nav>
-  );
-}
-
-function LandingHome({ onStart }: { onStart: () => void }) {
-  return (
-    <>
-      <section className="utility-landing utility-landing--ladwp" aria-labelledby="ladwp-title">
-        <div className="utility-landing__copy">
-          <p className="kicker">LADWP EZ-SAVE Program</p>
-          <h1 id="ladwp-title">
-            Automated EZ-SAVE Applications: in less than 5 minutes, LA residents
-            can cut their utility bills with a single, free application.
-          </h1>
-          <p className="muted lead">
-            Answer a few short questions to automate your application quickly.
-            EZ-SAVE is LADWP&apos;s income-qualified utility discount program for
-            eligible residential customers.
-          </p>
-          <div className="utility-landing__actions">
-            <button className="button button--emphasis" type="button" onClick={onStart}>
-              Begin here
-            </button>
-          </div>
-          <p className="muted utility-fineprint">
-            Approval is decided by LADWP. Once accepted and enrolled, EZ-SAVE
-            participants receive the program&apos;s bill discount and utility
-            shutoff protections related to late payment.
-          </p>
-        </div>
-        <div className="utility-landing__panel" aria-label="EZ-SAVE summary">
-          <span>income-qualified residential discount</span>
-          <strong>EZ-SAVE</strong>
-          <p>
-            Completed PDF prep today. Automated fax to program administrators is
-            coming soon.
-          </p>
-        </div>
-      </section>
-      <EzSaveFaq />
-    </>
-  );
-}
-
-function EligibilityCheckInfo({ onStart }: { onStart: () => void }) {
-  const incomeRows = Object.entries(LADWP_EZ_SAVE_THRESHOLDS.householdMaxIncome);
-
-  return (
-    <section className="utility-info-page" aria-labelledby="eligibility-title">
-      <div className="utility-info-page__header">
-        <p className="kicker">eligibility check</p>
-        <h1 id="eligibility-title">What LADWP usually checks</h1>
-        <p className="muted lead">
-          Even if you are unsure about your eligibility, you can always still
-          apply. LADWP makes the final decision.
-        </p>
-      </div>
-
-      <div className="eligibility-chart" aria-label="EZ-SAVE eligibility requirements">
-        <div className="eligibility-chart__row">
-          <strong>LADWP residential customer</strong>
-          <span>The account should be for your home&apos;s LADWP electric or water service.</span>
-        </div>
-        <div className="eligibility-chart__row">
-          <strong>Customer of record</strong>
-          <span>The application should match the person named on the LADWP account.</span>
-        </div>
-        <div className="eligibility-chart__row">
-          <strong>Primary residence</strong>
-          <span>The address should be where you live most of the time.</span>
-        </div>
-        <div className="eligibility-chart__row">
-          <strong>Not claimed as a dependent</strong>
-          <span>Applicants generally cannot be listed as someone else&apos;s tax dependent.</span>
-        </div>
-        <div className="eligibility-chart__row">
-          <strong>Household income</strong>
-          <span>Household income is compared with LADWP&apos;s current income limits.</span>
-        </div>
-      </div>
-
-      <section className="utility-income-table" aria-labelledby="income-limits-title">
-        <h2 id="income-limits-title">Current income guide</h2>
-        <div className="utility-income-table__grid">
-          {incomeRows.map(([size, limit]) => (
-            <div className="utility-income-table__cell" key={size}>
-              <span>{size} person{size === "1" ? "" : "s"}</span>
-              <strong>${limit.toLocaleString()}</strong>
-            </div>
-          ))}
-        </div>
-        <p className="muted utility-fineprint">
-          For households over 8 people, add $
-          {LADWP_EZ_SAVE_THRESHOLDS.additionalPersonAmount.toLocaleString()} for
-          each additional person.
-        </p>
-      </section>
-
-      <button className="button button--emphasis utility-result__apply" type="button" onClick={onStart}>
-        Start application
-      </button>
-    </section>
-  );
-}
-
-function MoreInfoPage() {
-  return (
-    <section className="utility-info-page" aria-labelledby="more-info-title">
-      <div className="utility-info-page__header">
-        <p className="kicker">more info</p>
-        <h1 id="more-info-title">Learn more before you apply</h1>
-        <p className="muted lead">
-          EZ-SAVE can lower monthly LADWP costs for eligible households. This
-          tool prepares a draft, but LADWP reviews and approves the application.
-        </p>
-      </div>
-
-      <div className="utility-landing__actions utility-info-page__actions">
-        <a
-          className="button button--emphasis"
-          href={LADWP_EZ_SAVE_WORKFLOW.applicationUrl}
-          rel="noreferrer"
-          target="_blank"
-        >
-          Learn about EZ-SAVE
-        </a>
-        <a className="button secondary" href="sms:+13233933120">
-          Text assistance or feedback
-        </a>
-      </div>
-
-      <p className="privacy-notice">
-        Text <strong>+1 (323) 393-3120</strong> to get assistance or provide
-        feedback.
-      </p>
-
-      <section className="utility-info-grid" aria-label="Why EZ-SAVE matters">
-        <article>
-          <h2>Lower monthly LADWP costs</h2>
-          <p>
-            EZ-SAVE is designed to reduce utility bills for eligible LADWP
-            residential customers. A lower bill can make it easier to stay
-            current each month.
-          </p>
-        </article>
-        <article>
-          <h2>Protection after enrollment</h2>
-          <p>
-            After LADWP accepts the application and enrolls the account,
-            participants receive program protections related to utility shutoff
-            for late payment.
-          </p>
-        </article>
-        <article>
-          <h2>No income proof uploaded here</h2>
-          <p>
-            The EZ-SAVE application does not require proof of income with the
-            initial packet. LADWP may verify eligibility later.
-          </p>
-        </article>
-      </section>
-    </section>
-  );
-}
-
-function EzSaveFaq() {
-  return (
-    <section className="utility-faq" aria-labelledby="ladwp-faq-title">
-      <div>
-        <p className="kicker">FAQ</p>
-        <h2 id="ladwp-faq-title">Common EZ-SAVE questions</h2>
-      </div>
-      <details>
-        <summary>Who is EZ-SAVE for?</summary>
-        <p>
-          EZ-SAVE is for income-qualified LADWP residential customers. The
-          application is tied to the LADWP customer of record and the
-          household&apos;s primary residence.
-        </p>
-      </details>
-      <details>
-        <summary>Does this submit my application automatically?</summary>
-        <p>
-          Yes. Once your information is entered, there are multiple ways to
-          submit your application, including an automatic fax option and a
-          filled PDF you can review, print, fax, or mail.
-        </p>
-      </details>
-      <details>
-        <summary>How long can approval take?</summary>
-        <p>
-          LADWP controls review timing, so acceptance is not instant. Plan for
-          processing time after submission, and contact LADWP directly if your
-          bill is urgent or already past due.
-        </p>
-      </details>
-      <details>
-        <summary>What if my bill is already past due?</summary>
-        <p>
-          You can still check EZ-SAVE. Because shutoff protections apply after
-          LADWP accepts and enrolls the account, it may also be worth contacting
-          LADWP about payment assistance or arrangements.
-        </p>
-      </details>
-      <details>
-        <summary>Do I need to upload a utility bill?</summary>
-        <p>
-          No. Upload is optional and only helps prefill simple account details
-          when possible. You can complete the whole workflow manually.
-        </p>
-      </details>
-      <details id="ladwp-account-number-help">
-        <summary>Do I need my LADWP account number?</summary>
-        <p>
-          It is recommended if you have it because it helps LADWP match the
-          application to the right bill. Look near the top of a paper or PDF
-          LADWP bill, in your LADWP online account, or on a recent LADWP
-          email/notice. You can still prepare the application if you need to
-          find it later.
-        </p>
-      </details>
-    </section>
-  );
-}
-
-function LadwpForm({
-  loading,
+function EligibilityStep({
+  result,
   status,
   onSubmit,
+  onContinue,
 }: {
+  result: LadwpEzSaveEligibilityResult | null;
+  status: string;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onContinue: () => void;
+}) {
+  const presentation = result ? eligibilityPresentation(result) : null;
+  return (
+    <section className="ez-flow-card ez-eligibility-step" aria-labelledby="eligibility-step-title">
+      <div className="ez-flow-heading">
+        <p className="ez-kicker">Takes about 60 seconds</p>
+        <h1 id="eligibility-step-title">Check if you might qualify</h1>
+        <p>Answer a few questions for a quick estimate. This will not stop you from applying.</p>
+      </div>
+      <form className="ez-quick-form" onSubmit={onSubmit}>
+        <input type="hidden" name="utilityProvider" value="LADWP" />
+        <EzRadioGroup legend="Do you have a residential LADWP account for your home?" name="isLadwpCustomer" defaultValue="yes" options={yesNo} />
+        <div className="ez-form-grid ez-form-grid--two">
+          <label className="ez-field"><span>People in your household</span><input min={1} name="householdTotal" type="number" required /><small>Count everyone who lives with you.</small></label>
+          <label className="ez-field"><span>Total annual household income</span><div className="ez-input-prefix"><span>$</span><input inputMode="decimal" name="annualGrossHouseholdIncome" required /></div><small>Use gross income before taxes.</small></label>
+        </div>
+        <EzRadioGroup legend="Are you the person named on the LADWP account?" name="isCustomerOfRecord" defaultValue="yes" options={yesNoUnsure} />
+        <EzRadioGroup legend="Is this account for your primary home?" name="isPrimaryResidence" defaultValue="yes" options={yesNoUnsure} />
+        <EzRadioGroup legend="Can someone else claim you as a dependent on their taxes?" name="claimedAsDependent" defaultValue="no" options={yesNoUnsure} />
+        <button className="ez-button ez-button--wide" type="submit">Check my eligibility</button>
+      </form>
+      {status ? <EzStatusBanner tone="warning" title="Eligibility check">{status}</EzStatusBanner> : null}
+      {status ? <button className="ez-button" type="button" onClick={onContinue}>Continue to application</button> : null}
+      {result && presentation ? (
+        <div className="ez-result-block">
+          <EzStatusBanner tone={presentation.tone} title={presentation.title}>
+            <p>{result.reasons[0]}</p>
+            <p>LADWP makes the final decision. There is no harm in applying if you are unsure.</p>
+          </EzStatusBanner>
+          <div className="ez-actions">
+            <button className="ez-button" type="button" onClick={onContinue}>Continue to application <ArrowRight aria-hidden="true" size={17} /></button>
+            <button className="ez-button ez-button--secondary" type="button" onClick={() => document.querySelector<HTMLFormElement>(".ez-quick-form")?.scrollIntoView({ behavior: "smooth" })}>Change answers</button>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function ApplicationForm({
+  eligibilityAnswers,
+  loading,
+  status,
+  onBack,
+  onSubmit,
+}: {
+  eligibilityAnswers: Partial<LadwpEzSaveInput>;
   loading: boolean;
   status: string;
+  onBack: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   const [extractStatus, setExtractStatus] = useState("");
   const [extractWarnings, setExtractWarnings] = useState<string[]>([]);
   const [extracting, setExtracting] = useState(false);
-  const formElementRef = useRef<HTMLFormElement>(null);
+  const [fileName, setFileName] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
 
   async function handleBillUpload(file: File | undefined) {
-    if (!file || !formElementRef.current) return;
+    if (!file || !formRef.current) return;
+    setFileName(file.name);
     setExtracting(true);
     setExtractWarnings([]);
-    setExtractStatus("Reading bill...");
-
+    setExtractStatus("Reading your bill…");
     const body = new FormData();
     body.append("bill", file);
-
     try {
-      const response = await fetch("/api/programs/ladwp-ez-save/bill-extract", {
-        method: "POST",
-        body,
-      });
-      const json = (await response.json()) as
-        | LadwpEzSaveBillExtractionResult
-        | { error?: string };
-
+      const response = await fetch("/api/programs/ladwp-ez-save/bill-extract", { method: "POST", body });
+      const json = (await response.json()) as LadwpEzSaveBillExtractionResult | { error?: string };
       const error = apiError(json);
       if (!response.ok || error) {
-        setExtractStatus(error ?? "Could not read that bill.");
+        setExtractStatus(error ?? "We couldn’t read that bill. You can enter the information manually.");
         return;
       }
-
       const result = json as LadwpEzSaveBillExtractionResult;
-      const applied = applyExtractedFieldsToForm(formElementRef.current, result.fields);
+      const applied = applyExtractedFieldsToForm(formRef.current, result.fields);
       setExtractWarnings(result.warnings);
-      setExtractStatus(
-        applied > 0
-          ? `Prefilled ${applied} field${applied === 1 ? "" : "s"}. Review before continuing.`
-          : "No fields were prefilled. You can continue manually.",
-      );
+      setExtractStatus(applied > 0 ? `We filled ${applied} field${applied === 1 ? "" : "s"}. Please review them below.` : "We couldn’t find details to prefill. You can continue manually.");
     } catch {
-      setExtractStatus("Could not read that bill. You can continue manually.");
+      setExtractStatus("We couldn’t read that bill. You can continue manually.");
     } finally {
       setExtracting(false);
     }
   }
 
   return (
-    <section className="utility-card" aria-labelledby="ladwp-form-title">
-      <p className="kicker">application prep</p>
-      <h1 id="ladwp-form-title">Get your EZ-SAVE application ready</h1>
-      <div className="utility-form-intro">
-        <p>
-          EZ-SAVE helps eligible LADWP households lower their utility bill. We
-          only ask for the details LADWP needs to estimate eligibility and build
-          the application draft.
-        </p>
-        <p>
-          You can type everything yourself or upload a bill to prefill simple
-          account details. Either way, you review every answer before applying.
-        </p>
+    <section aria-labelledby="application-title">
+      <div className="ez-flow-heading">
+        <p className="ez-kicker">Application details</p>
+        <h1 id="application-title">Prepare your application</h1>
+        <p>Enter the information as it appears on your LADWP account. You will review everything next.</p>
       </div>
-      <p className="privacy-notice">
-        Do not upload income documents, IDs, SSNs, bank information, or medical
-        records. No proof of income is needed with the EZ-SAVE application.
-      </p>
+      <form className="ez-application-form" ref={formRef} onSubmit={onSubmit}>
+        <input type="hidden" name="utilityProvider" value="LADWP" />
+        <input type="hidden" name="includeAccountNumberInDraft" value="yes" />
+        <input type="hidden" name="isLadwpCustomer" value={booleanFormValue(eligibilityAnswers.isLadwpCustomer)} />
+        <input type="hidden" name="isCustomerOfRecord" value={booleanFormValue(eligibilityAnswers.isCustomerOfRecord)} />
+        <input type="hidden" name="isPrimaryResidence" value={booleanFormValue(eligibilityAnswers.isPrimaryResidence)} />
+        <input type="hidden" name="claimedAsDependent" value={booleanFormValue(eligibilityAnswers.claimedAsDependent)} />
 
-      <form className="utility-form" ref={formElementRef} onSubmit={onSubmit}>
-        <div className="utility-form__grid">
-          <label>
-            Utility provider
-            <select name="utilityProvider" defaultValue="LADWP">
-              <option value="LADWP">LADWP</option>
-              <option value="Other">Other</option>
-            </select>
-          </label>
-          <SelectBoolean
-            hint="Choose yes if this is an LADWP residential electric or water account for the home where you live."
-            label="Are you an LADWP residential customer?"
-            name="isLadwpCustomer"
-          />
-          <label>
-            ZIP code
-            <input inputMode="numeric" maxLength={5} name="zipCode" placeholder="90012" />
-            <span className="muted utility-field-help">
-              Use the ZIP code for the LADWP service address, not a mailing
-              address.
-            </span>
-          </label>
-          <label>
-            First name
-            <input autoComplete="given-name" name="firstName" placeholder="Maria" />
-            <span className="muted utility-field-help">
-              Use the first name of the LADWP customer of record.
-            </span>
-          </label>
-          <label>
-            Last name
-            <input autoComplete="family-name" name="lastName" placeholder="Garcia" />
-            <span className="muted utility-field-help">
-              Use the last name exactly as it should appear on the application.
-            </span>
-          </label>
-          <label>
-            Middle initial
-            <input maxLength={1} name="middleInitial" placeholder="A" />
-            <span className="muted utility-field-help">
-              Optional. Leave blank if you do not use a middle initial.
-            </span>
-          </label>
-          <label>
-            Service street address
-            <input
-              autoComplete="street-address"
-              name="serviceStreetAddress"
-              placeholder="123 Spring St"
-            />
-            <span className="muted utility-field-help">
-              Use the street address for the home receiving LADWP service.
-            </span>
-          </label>
-          <label>
-            Apartment number
-            <input name="apartmentNumber" placeholder="4B" />
-            <span className="muted utility-field-help">
-              Optional. Use the apartment, unit, space, or suite number.
-            </span>
-          </label>
-          <label>
-            Home telephone
-            <input inputMode="tel" name="phone" placeholder="213-555-0100" />
-            <span className="muted utility-field-help">
-              Recommended so LADWP can reach you if the application needs review.
-            </span>
-          </label>
-          <label>
-            Mobile telephone
-            <input inputMode="tel" name="mobilePhone" placeholder="323-555-0100" />
-            <span className="muted utility-field-help">
-              Optional. Add the best mobile number for application follow-up.
-            </span>
-          </label>
-          <label>
-            Household total
-            <input min={1} name="householdTotal" type="number" />
-            <span className="muted utility-field-help">
-              Count everyone who lives in the household, including children,
-              relatives, and roommates.
-            </span>
-          </label>
-          <label>
-            Adults
-            <input min={0} name="householdAdults" type="number" />
-            <span className="muted utility-field-help">
-              Adults are household members age 18 or older.
-            </span>
-          </label>
-          <label>
-            Children
-            <input min={0} name="householdChildren" type="number" />
-            <span className="muted utility-field-help">
-              Children are household members under age 18.
-            </span>
-          </label>
-          <label>
-            Combined gross annual household income
-            <input
-              inputMode="decimal"
-              name="annualGrossHouseholdIncome"
-              placeholder="64000"
-            />
-            <span className="muted utility-field-help">
-              Enter yearly income before taxes for everyone in the household.
-              LADWP may verify eligibility later.
-            </span>
-          </label>
-          <SelectBoolean
-            hint="This means your name is on the LADWP account or bill."
-            label="Are you the LADWP customer of record?"
-            name="isCustomerOfRecord"
-          />
-          <SelectBoolean
-            hint="This should be the home where you live most of the time."
-            label="Is this your permanent primary residence?"
-            name="isPrimaryResidence"
-          />
-          <SelectBoolean
-            hint="Answer yes if another person can list you as a dependent on their taxes."
-            label="Can someone claim you as a dependent?"
-            name="claimedAsDependent"
-            defaultValue="no"
-          />
-          <label>
-            Application type
-            <select name="newApplicationOrRenewal" defaultValue="new_application">
-              <option value="new_application">New application</option>
-              <option value="renewal">Renewal</option>
-            </select>
-            <span className="muted utility-field-help">
-              Choose renewal only if you are already enrolled and updating your
-              EZ-SAVE status.
-            </span>
-          </label>
-          <label>
-            Email for reminders
-            <input autoComplete="email" name="email" type="email" placeholder="you@example.com" />
-            <span className="muted utility-field-help">
-              Optional. Used only for app reminders or a copy of your draft.
-              EZ-SAVE submission is by fax or mail.
-            </span>
-          </label>
-          <label>
-            Monthly bill amount
-            <input inputMode="decimal" name="monthlyBillAmount" placeholder="180" />
-            <span className="muted utility-field-help">
-              Optional. This helps estimate how meaningful a monthly discount
-              could be for you.
-            </span>
-          </label>
-          <SelectBoolean
-            hint="Optional. If yes, you may also want to contact LADWP about payment assistance or a payment arrangement."
-            label="Is the bill past due?"
-            name="pastDueStatus"
-            optional
-          />
-        </div>
+        <FormSection number="1" title="Applicant information" description="Use the name and contact information for the LADWP customer of record.">
+          <div className="ez-form-grid ez-form-grid--name">
+            <label className="ez-field"><span>First name</span><input autoComplete="given-name" name="firstName" required /></label>
+            <label className="ez-field ez-field--short"><span>Middle initial <em>Optional</em></span><input autoComplete="additional-name" maxLength={1} name="middleInitial" /></label>
+            <label className="ez-field"><span>Last name</span><input autoComplete="family-name" name="lastName" required /></label>
+          </div>
+          <div className="ez-form-grid ez-form-grid--two">
+            <label className="ez-field"><span>Home telephone <em>Optional</em></span><input autoComplete="tel-national" inputMode="tel" name="phone" /></label>
+            <label className="ez-field"><span>Mobile telephone</span><input autoComplete="tel" inputMode="tel" name="mobilePhone" required /><small>Best number for application follow-up.</small></label>
+          </div>
+          <label className="ez-field"><span>Email <em>Optional</em></span><input autoComplete="email" name="email" type="email" /><small>Used only for reminders or a copy of your receipt.</small></label>
+        </FormSection>
 
-        <fieldset className="utility-programs">
-          <legend>Optional bill details</legend>
-          <p className="muted utility-fineprint">
-            Add your LADWP account number if you have it nearby. It helps LADWP
-            match the application to the right bill, but you can keep going if
-            you need to find it later. We do not need your SSN.
-          </p>
-          <label className="toggle-field">
-            <input name="includeAccountNumberInDraft" type="checkbox" />
-            <span>Include account number in my draft</span>
-          </label>
-          <label>
-            Account number
-            <input
-              autoComplete="off"
-              inputMode="numeric"
-              name="accountNumber"
-              placeholder="Printed on your LADWP bill"
-            />
-            <span className="muted utility-field-help">
-              Look near the top of a LADWP bill, in your LADWP online account,
-              or on a recent LADWP email/notice.
-            </span>
-          </label>
-          <details className="utility-field-details">
-            <summary>How do I find my account number?</summary>
-            <p>
-              The quickest place is usually the top section of a paper or PDF
-              LADWP bill. If you use LADWP online, check the account overview or
-              billing page. If someone else manages the bill, ask the LADWP
-              customer of record for the account number before submitting.
-            </p>
-            <a
-              href={LADWP_EZ_SAVE_WORKFLOW.applicationUrl}
-              rel="noreferrer"
-              target="_blank"
-            >
-              Open LADWP EZ-SAVE page
-            </a>
-          </details>
-          <label>
-            Bill upload
-            <input
-              accept=".pdf,image/*,.txt,.csv,text/plain,text/csv"
-              name="billUpload"
-              type="file"
-              onChange={(event) =>
-                handleBillUpload(event.currentTarget.files?.[0])
-              }
-            />
-            <span className="muted utility-fineprint">
-              Optional. Plain text bills can prefill fields now; PDF/image
-              extraction can use an OCR or LLM provider later. Manual entry
-              always works.
-            </span>
-          </label>
-          {extractStatus ? (
-            <p className="privacy-notice" aria-live="polite">
-              {extracting ? "Reading bill..." : extractStatus}
-            </p>
-          ) : null}
-          {extractWarnings.length > 0 ? (
-            <ul className="utility-list utility-extract-warnings">
-              {extractWarnings.map((warning) => (
-                <li key={warning}>{warning}</li>
-              ))}
-            </ul>
-          ) : null}
-        </fieldset>
+        <FormSection number="2" title="LADWP service address" description="Use the address where LADWP provides service.">
+          <label className="ez-field"><span>Service street address</span><input autoComplete="street-address" name="serviceStreetAddress" required /></label>
+          <div className="ez-form-grid ez-form-grid--two">
+            <label className="ez-field"><span>Apartment or unit <em>Optional</em></span><input autoComplete="address-line2" name="apartmentNumber" /></label>
+            <label className="ez-field"><span>ZIP code</span><input autoComplete="postal-code" inputMode="numeric" maxLength={5} name="zipCode" required /></label>
+          </div>
+          <label className="ez-field"><span>LADWP account number <em>Optional</em></span><input autoComplete="off" inputMode="numeric" name="accountNumber" /><small>Recommended if you have it nearby.</small></label>
+          <details className="ez-inline-details"><summary>Where can I find my account number?</summary><p>Look near the top of a paper or PDF bill, in your LADWP online account, or on a recent LADWP notice.</p></details>
+        </FormSection>
 
-        <fieldset className="utility-programs">
-          <legend>Review and contact</legend>
-          <label className="toggle-field">
-            <input name="consentToPrepareApplication" required type="checkbox" />
-            <span>I want this app to prepare an EZ-SAVE application draft.</span>
-          </label>
-          <label className="toggle-field">
-            <input name="consentToContact" type="checkbox" />
-            <span>Send me a reminder to check my next LADWP bill.</span>
-          </label>
-        </fieldset>
+        <FormSection number="3" title="Household details" description="We carried over the answers from your eligibility check.">
+          <div className="ez-form-grid ez-form-grid--three">
+            <label className="ez-field"><span>Household total</span><input defaultValue={eligibilityAnswers.householdTotal} min={1} name="householdTotal" type="number" required /></label>
+            <label className="ez-field"><span>Adults</span><input min={0} name="householdAdults" type="number" required /></label>
+            <label className="ez-field"><span>Children</span><input min={0} name="householdChildren" type="number" required /></label>
+          </div>
+          <label className="ez-field"><span>Total annual gross household income</span><div className="ez-input-prefix"><span>$</span><input defaultValue={eligibilityAnswers.annualGrossHouseholdIncome} inputMode="decimal" name="annualGrossHouseholdIncome" required /></div><small>Income before taxes for everyone in the household.</small></label>
+          <div className="ez-form-grid ez-form-grid--two">
+            <label className="ez-field"><span>Application type</span><select name="newApplicationOrRenewal" defaultValue="new_application"><option value="new_application">New application</option><option value="renewal">Renewal</option></select></label>
+            <label className="ez-field"><span>Monthly bill amount <em>Optional</em></span><div className="ez-input-prefix"><span>$</span><input inputMode="decimal" name="monthlyBillAmount" /></div></label>
+          </div>
+          <EzRadioGroup legend="Is the bill past due?" name="pastDueStatus" defaultValue="" options={yesNoUnsure} help="Optional. If yes, consider contacting LADWP about a payment arrangement too." />
+        </FormSection>
 
-        <div className="row">
-          <button className="button" disabled={loading} type="submit">
-            {loading ? "Checking…" : "Start application"}
-          </button>
-          {status ? <p className="muted">{status}</p> : null}
-        </div>
+        <section className="ez-upload-card" aria-labelledby="bill-upload-title">
+          <div className="ez-upload-card__icon" aria-hidden="true"><Upload size={21} /></div>
+          <div><p className="ez-kicker">Bill upload</p><h2 id="bill-upload-title">Upload a recent LADWP bill</h2><p>Optional. Upload a bill to prefill basic account details.</p></div>
+          <label className="ez-upload-control"><input accept=".pdf,image/*,.txt,.csv,text/plain,text/csv" name="billUpload" type="file" onChange={(event) => handleBillUpload(event.currentTarget.files?.[0])} /><span>{fileName || "Choose a PDF, image, or text file"}</span><strong>Browse</strong></label>
+          {extractStatus ? <EzStatusBanner tone={extracting ? "pending" : "neutral"} title={extracting ? "Reading bill" : "Bill upload"}>{extracting ? "Looking for account details…" : extractStatus}</EzStatusBanner> : null}
+          {extractWarnings.length ? <details className="ez-inline-details"><summary>Review upload notes</summary><ul>{extractWarnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></details> : null}
+        </section>
+
+        <aside className="ez-privacy-callout"><span aria-hidden="true"><Info size={15} /></span><p><strong>Protect your private information.</strong> Do not upload income documents, identification, Social Security numbers, bank information, or medical records.</p></aside>
+
+        <FormSection number="4" title="Consent" description="Nothing is sent until you review and authorize submission.">
+          <label className="ez-check"><input name="consentToPrepareApplication" required type="checkbox" /><span>I want Buffalo Billsaver to prepare my EZ-SAVE application.</span></label>
+          <label className="ez-check"><input name="consentToContact" type="checkbox" /><span>Send me a reminder to check my next LADWP bill. <em>Optional</em></span></label>
+        </FormSection>
+
+        {status ? <EzStatusBanner tone="error" title="Application">{status}</EzStatusBanner> : null}
+        <div className="ez-form-actions"><button className="ez-button ez-button--secondary" type="button" onClick={onBack}>Back</button><button className="ez-button" disabled={loading} type="submit">{loading ? "Preparing…" : "Prepare my application"}</button></div>
       </form>
     </section>
   );
 }
 
-function SelectBoolean({
-  defaultValue,
-  hint,
-  label,
-  name,
-  optional = false,
-}: {
-  defaultValue?: "yes" | "no" | "";
-  hint?: string;
-  label: string;
-  name: string;
-  optional?: boolean;
-}) {
-  return (
-    <label>
-      {label}
-      <select name={name} defaultValue={defaultValue ?? (optional ? "" : "yes")}>
-        {optional ? <option value="">Not sure</option> : null}
-        <option value="yes">Yes</option>
-        <option value="no">No</option>
-      </select>
-      {hint ? <span className="muted utility-field-help">{hint}</span> : null}
-    </label>
-  );
+function FormSection({ number, title, description, children }: { number: string; title: string; description: string; children: ReactNode }) {
+  return <section className="ez-form-section"><header><span>{number}</span><div><h2>{title}</h2><p>{description}</p></div></header><div className="ez-form-section__body">{children}</div></section>;
 }
 
-function ResultPanel({
-  result,
-  draft,
-  onReview,
-  onReset,
-}: {
-  result: LadwpEzSaveEligibilityResult;
-  draft: LadwpEzSaveApplicationDraft;
-  onReview: () => void;
-  onReset: () => void;
-}) {
-  return (
-    <section className="utility-result">
-      <div className="utility-result__header">
-        <p className="kicker">{result.confidence.toLowerCase()} estimate</p>
-        <h1>{statusTitle(result.status)}</h1>
-        <p className="muted lead">
-          {LADWP_EZ_SAVE_WORKFLOW.resultLanguageTemplates.noIncomeProof}
-        </p>
-      </div>
-      <div className="utility-result__grid">
-        <section className="utility-result__section">
-          <h2>Why this result</h2>
-          <ul className="utility-list">
-            {result.reasons.map((reason) => (
-              <li key={reason}>{reason}</li>
-            ))}
-          </ul>
-        </section>
-        <section className="utility-result__section">
-          <h2>Next step</h2>
-          <ul className="utility-list">
-            {draft.nextSteps.map((step) => (
-              <li key={step}>{step}</li>
-            ))}
-          </ul>
-        </section>
-      </div>
-      <p className="privacy-notice">
-        Review these answers before applying. This app does not guarantee
-        approval.
-      </p>
-      <div className="row">
-        <button className="button" type="button" onClick={onReview}>
-          Review application draft
-        </button>
-        <button className="button secondary" type="button" onClick={onReset}>
-          Edit answers
-        </button>
-      </div>
-    </section>
-  );
-}
+const reviewGroups = [
+  { title: "Applicant", keys: ["first_name", "middle_initial", "last_name", "phone", "mobile_phone", "email"] },
+  { title: "Service address", keys: [SERVICE_STREET_ADDRESS_KEY, "apartment_number", "zip_code", "account_number"] },
+  { title: "Household and eligibility", keys: ["household_total", "household_adults", "household_children", "annual_gross_household_income", "is_ladwp_customer", "is_customer_of_record", "is_primary_residence", "claimed_as_dependent", "new_application_or_renewal"] },
+  { title: "Bill and contact details", keys: ["utility_provider", "monthly_bill_amount", "past_due_status", "consent_to_prepare_application"] },
+];
 
-function ReviewPanel({
-  draft,
-  draftValues,
-  copiedAnswers,
-  status,
-  setDraftValues,
-  onBack,
-  onCopy,
-  onContinue,
-}: {
+function ReviewPanel({ draft, draftValues, setDraftValues, onBack, onContinue }: {
   draft: LadwpEzSaveApplicationDraft;
   draftValues: Record<string, string>;
-  copiedAnswers: string;
-  status: string;
   setDraftValues: Dispatch<SetStateAction<Record<string, string>>>;
   onBack: () => void;
-  onCopy: () => void;
   onContinue: () => void;
 }) {
-  const [reviewConfirmed, setReviewConfirmed] = useState(false);
-  const fieldsByKey = new Map(draft.fields.map((field) => [field.fieldKey, field]));
-  const missing = draft.missingFields
-    .map(missingFieldLabel)
-    .filter((label, index, labels) => labels.indexOf(label) === index)
-    .join(", ");
+  const definitions = reviewFieldDefinitions();
+  const [confirmed, setConfirmed] = useState(false);
+  const [copyStatus, setCopyStatus] = useState("");
+  const [editingGroups, setEditingGroups] = useState<Record<string, boolean>>(() => (
+    Object.fromEntries(reviewGroups.map((group) => [
+      group.title,
+      group.keys.some((key) => {
+        const definition = definitions.find((item) => item.fieldKey === key);
+        return Boolean(definition?.required && !draftValues[key]);
+      }),
+    ]))
+  ));
+  const missingLabels = draft.missingFields.map(missingFieldLabel).filter((label, index, labels) => labels.indexOf(label) === index);
+  const copiedAnswers = definitions.map((field) => `${field.label}: ${draftValues[field.fieldKey] || "[missing]"}`).join("\n");
+
+  async function copyAnswers() {
+    await navigator.clipboard.writeText(copiedAnswers);
+    setCopyStatus("Answers copied.");
+  }
 
   return (
-    <section className="utility-result utility-draft">
-      <div className="utility-result__header">
-        <p className="kicker">review before ladwp</p>
-        <h1>Application draft</h1>
-        <p className="muted lead">
-          Review these answers before applying. This app does not guarantee
-          approval.
-        </p>
-      </div>
-      {missing ? (
-        <p className="privacy-notice">
-          <strong>Missing fields:</strong> {missing}
-        </p>
-      ) : null}
-      <div className="utility-draft__rows">
-        {reviewFieldDefinitions().map((definition) => {
-          const field =
-            definition.fieldKey === SERVICE_STREET_ADDRESS_KEY
-              ? fieldsByKey.get("service_address_street_name") ??
-                fieldsByKey.get("service_address_street_number")
-              : fieldsByKey.get(definition.fieldKey);
-          const value = draftValues[definition.fieldKey] ?? "";
-          const updateValue = (nextValue: string) =>
-            setDraftValues((current) => ({
-              ...current,
-              [definition.fieldKey]: nextValue,
-            }));
+    <section aria-labelledby="review-title">
+      <div className="ez-flow-heading"><p className="ez-kicker">Review</p><h1 id="review-title">Review your information</h1><p>Make sure every answer is accurate. You can edit any field below.</p></div>
+      {missingLabels.length ? <EzStatusBanner tone="warning" title="A few details need attention"><p>{missingLabels.join(", ")}</p></EzStatusBanner> : null}
+      <div className="ez-review-groups">
+        {reviewGroups.map((group) => {
+          const slug = group.title.toLowerCase().replaceAll(" ", "-");
+          const isEditing = Boolean(editingGroups[group.title]);
+          const contentId = `review-${slug}-content`;
           return (
-            <div className="utility-draft-row" key={definition.fieldKey}>
-              <div className="utility-draft-row__meta">
-                <strong>
-                  {definition.label}
-                  {definition.required ? " *" : ""}
-                </strong>
-                <span>{definition.userHelpText}</span>
-              </div>
-              <div className="utility-draft-row__control">
-                {definition.type === "select" ? (
-                  <select
-                    value={value}
-                    onChange={(event) => updateValue(event.currentTarget.value)}
-                  >
-                    {(definition.allowedValues ?? []).map((option) => (
-                      <option key={option} value={option}>
-                        {selectOptionLabel(option)}
-                      </option>
-                    ))}
-                  </select>
-                ) : definition.type === "boolean" ? (
-                  <select
-                    value={value.toLowerCase()}
-                    onChange={(event) => updateValue(event.currentTarget.value)}
-                  >
-                    <option value="">Not sure</option>
-                    <option value="yes">Yes</option>
-                    <option value="no">No</option>
-                  </select>
-                ) : (
-                  <input
-                    value={value}
-                    onChange={(event) => updateValue(event.currentTarget.value)}
-                  />
-                )}
-              </div>
-              <div className="utility-draft-row__status">
-                <span>Source: {field?.source.replace("_", " ") ?? "missing"}</span>
-                <span>Confidence: {field?.confidence ?? "needs answer"}</span>
-                <span>Required: {definition.required ? "yes" : "no"}</span>
-                <span>Review: {!field || field.needsReview ? "needed" : "ok"}</span>
-              </div>
-            </div>
+            <section className={`ez-review-group${isEditing ? " is-editing" : ""}`} id={`review-${slug}`} key={group.title}>
+              <header>
+                <h2>{group.title}</h2>
+                <button
+                  aria-controls={contentId}
+                  aria-expanded={isEditing}
+                  type="button"
+                  onClick={() => {
+                    setEditingGroups((current) => ({ ...current, [group.title]: !isEditing }));
+                    if (!isEditing) {
+                      requestAnimationFrame(() => document.querySelector<HTMLElement>(`#review-${slug} input, #review-${slug} select`)?.focus());
+                    }
+                  }}
+                >
+                  {isEditing ? "Done" : "Edit"}
+                </button>
+              </header>
+              {isEditing ? (
+                <div className="ez-review-grid" id={contentId}>
+                  {group.keys.map((key) => {
+                    const definition = definitions.find((item) => item.fieldKey === key);
+                    if (!definition) return null;
+                    const value = draftValues[key] ?? "";
+                    const needsReview = definition.required && !value;
+                    const updateValue = (nextValue: string) => setDraftValues((current) => ({ ...current, [key]: nextValue }));
+                    return (
+                      <label className={`ez-review-field${needsReview ? " needs-review" : ""}`} key={key}>
+                        <span>{definition.label}{definition.required ? " *" : ""}{needsReview ? <em>Needs review</em> : null}</span>
+                        {definition.type === "select" ? (
+                          <select value={value} onChange={(event) => updateValue(event.currentTarget.value)}>{(definition.allowedValues ?? []).map((option) => <option key={option} value={option}>{selectOptionLabel(option)}</option>)}</select>
+                        ) : definition.type === "boolean" ? (
+                          <select value={value.toLowerCase()} onChange={(event) => updateValue(event.currentTarget.value)}><option value="">Not sure</option><option value="yes">Yes</option><option value="no">No</option></select>
+                        ) : (
+                          <input value={value} onChange={(event) => updateValue(event.currentTarget.value)} />
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <dl className="ez-review-summary" id={contentId}>
+                  {group.keys.map((key) => {
+                    const definition = definitions.find((item) => item.fieldKey === key);
+                    if (!definition) return null;
+                    const value = draftValues[key] ?? "";
+                    const needsReview = definition.required && !value;
+                    return (
+                      <div key={key}>
+                        <dt>{definition.label}</dt>
+                        <dd className={!value ? "is-empty" : undefined}>
+                          {reviewDisplayValue(definition, value)}
+                          {needsReview ? <em>Needs review</em> : null}
+                        </dd>
+                      </div>
+                    );
+                  })}
+                </dl>
+              )}
+            </section>
           );
         })}
       </div>
-      <section className="utility-result__section">
-        <h2>Warnings</h2>
-        <ul className="utility-list">
-          {draft.warnings.map((warning) => (
-            <li key={warning}>{warning}</li>
-          ))}
-        </ul>
-      </section>
-      <label className="toggle-field">
-        <input
-          checked={reviewConfirmed}
-          type="checkbox"
-          onChange={(event) => setReviewConfirmed(event.currentTarget.checked)}
-        />
-        <span>I reviewed these answers and want to continue to LADWP.</span>
-      </label>
-      <div className="row utility-draft-actions">
-        <button
-          className="button"
-          disabled={!reviewConfirmed}
-          type="button"
-          onClick={onContinue}
-        >
-          Continue
-        </button>
-        <button
-          className="button secondary utility-draft-actions__side"
-          type="button"
-          onClick={onCopy}
-        >
-          Copy all answers
-        </button>
-        <button className="button secondary" type="button" onClick={onBack}>
-          Back
-        </button>
-        {status ? <p className="muted">{status}</p> : null}
-      </div>
-      <textarea
-        aria-label="Copied answers preview"
-        className="utility-copy-preview"
-        readOnly
-        value={copiedAnswers}
-      />
+      <details className="ez-more-options"><summary>More options</summary><div><button className="ez-button ez-button--tertiary" type="button" onClick={copyAnswers}>Copy all answers</button>{copyStatus ? <span aria-live="polite">{copyStatus}</span> : null}</div></details>
+      <label className="ez-check ez-review-confirm"><input checked={confirmed} type="checkbox" onChange={(event) => setConfirmed(event.currentTarget.checked)} /><span>I reviewed the information above and confirm it is accurate.</span></label>
+      <div className="ez-form-actions"><button className="ez-button ez-button--secondary" type="button" onClick={onBack}>Back</button><button className="ez-button" disabled={!confirmed} type="button" onClick={onContinue}>Continue to submission</button></div>
     </section>
   );
 }
 
-function HandoffPanel({
-  pdfStatus,
-  receiptUrl,
-  submissionNotice,
-  onBack,
-  onFax,
-  onPdf,
-}: {
+function SubmissionPanel({ pdfStatus, receiptUrl, submissionNotice, onBack, onFax, onPdf }: {
   pdfStatus: string;
   receiptUrl: string;
   submissionNotice: SubmissionNotice | null;
   onBack: () => void;
-  onFax: (signature: {
-    signerName: string;
-    signerEmail?: string | null;
-    consentAccepted: boolean;
-    adminFaxTest?: boolean;
-  }) => void;
+  onFax: (signature: { signerName: string; signerEmail?: string | null; consentAccepted: boolean; adminFaxTest?: boolean }) => void;
   onPdf: () => void;
 }) {
   const [signerName, setSignerName] = useState("");
   const [signerEmail, setSignerEmail] = useState("");
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [adminFaxTest, setAdminFaxTest] = useState(false);
-  const canFax = signerName.trim() && consentAccepted;
-  const faxDestination = adminFaxTest
-    ? ADMIN_TEST_FAX_NUMBER
-    : LADWP_EZ_SAVE_WORKFLOW.faxNumber;
+  const canFax = Boolean(signerName.trim() && consentAccepted);
+  const destination = adminFaxTest ? ADMIN_TEST_FAX_NUMBER : LADWP_EZ_SAVE_WORKFLOW.faxNumber;
 
   return (
-    <section className="utility-result">
-      <div className="utility-result__header">
-        <p className="kicker">submission handoff</p>
-        <h1>Your draft is ready</h1>
-        <p className="muted lead">
-          Review the generated packet, then fax it to LADWP or print and mail
-          it.
-        </p>
-      </div>
-      <div className="utility-result__grid">
-        <section className="utility-result__section">
-          <h2>Automatic fax</h2>
-          <p className="muted">
-            Send the completed packet directly by fax from this app.
-          </p>
-          <p className="muted">Fax: {LADWP_EZ_SAVE_WORKFLOW.faxNumber}</p>
-          <details className="utility-admin-test">
-            <summary>Admin test</summary>
-            <label className="toggle-field">
-              <input
-                checked={adminFaxTest}
-                type="checkbox"
-                onChange={(event) => setAdminFaxTest(event.currentTarget.checked)}
-              />
-              <span>Send this fax to {ADMIN_TEST_FAX_NUMBER}</span>
-            </label>
-          </details>
-          <label>
-            Electronic signature
-            <input
-              autoComplete="name"
-              placeholder="Type your full legal name"
-              value={signerName}
-              onChange={(event) => setSignerName(event.currentTarget.value)}
-            />
-          </label>
-          <label>
-            Receipt email
-            <input
-              autoComplete="email"
-              placeholder="Optional"
-              type="email"
-              value={signerEmail}
-              onChange={(event) => setSignerEmail(event.currentTarget.value)}
-            />
-          </label>
-          <label className="toggle-field">
-            <input
-              checked={consentAccepted}
-              type="checkbox"
-              onChange={(event) => setConsentAccepted(event.currentTarget.checked)}
-            />
-            <span>
-              I reviewed this application and authorize this app to apply my
-              electronic signature and fax it to LADWP.
-            </span>
-          </label>
-          <button
-            className="button"
-            disabled={!canFax}
-            type="button"
-            onClick={() =>
-              onFax({
-                signerName: signerName.trim(),
-                signerEmail: signerEmail.trim() || null,
-                consentAccepted,
-                adminFaxTest,
-              })
-            }
-          >
-            {adminFaxTest ? "Sign and send test fax" : "Sign and fax to LADWP"}
-          </button>
-          <p className="muted utility-fineprint">
-            A receipt page is created after signing. Fax delivery still depends
-            on the configured provider. Destination: {faxDestination}.
-          </p>
+    <section aria-labelledby="submit-title">
+      <div className="ez-flow-heading"><p className="ez-kicker">Submit</p><h1 id="submit-title">Send your application</h1><p>Fax directly to LADWP, or download the completed PDF and submit it yourself.</p></div>
+      {submissionNotice ? <EzStatusBanner tone={submissionNotice.tone} title={submissionNotice.title}>{submissionNotice.message}</EzStatusBanner> : null}
+      {receiptUrl ? <a className="ez-button ez-receipt-button" href={receiptUrl}>View receipt <ArrowRight aria-hidden="true" size={17} /></a> : null}
+      <div className="ez-submit-layout">
+        <section className="ez-submit-card ez-submit-card--primary">
+          <div className="ez-submit-card__heading"><span aria-hidden="true"><Send size={19} /></span><div><p className="ez-kicker">Recommended</p><h2>Fax to LADWP</h2><p>Your application will be signed and sent directly to LADWP.</p></div></div>
+          <div className="ez-destination"><span>Destination fax number</span><strong>{destination}</strong></div>
+          <label className="ez-field"><span>Electronic signature</span><input autoComplete="name" placeholder="Type your full legal name" value={signerName} onChange={(event) => setSignerName(event.currentTarget.value)} /></label>
+          <label className="ez-field"><span>Receipt email <em>Optional</em></span><input autoComplete="email" type="email" value={signerEmail} onChange={(event) => setSignerEmail(event.currentTarget.value)} /></label>
+          <label className="ez-check"><input checked={consentAccepted} type="checkbox" onChange={(event) => setConsentAccepted(event.currentTarget.checked)} /><span>I reviewed this application and authorize Buffalo Billsaver to apply my electronic signature and fax it to LADWP.</span></label>
+          <button className="ez-button ez-button--wide" disabled={!canFax} type="button" onClick={() => onFax({ signerName: signerName.trim(), signerEmail: signerEmail.trim() || null, consentAccepted, adminFaxTest })}>{adminFaxTest ? "Sign and send test fax" : "Sign and fax to LADWP"}</button>
         </section>
-        <section className="utility-result__section">
-          <h2>Download PDF</h2>
-          <p className="muted">
-            Download the filled PDF this app created for you if you want to fax
-            it yourself or print and mail it instead of using automated fax.
-          </p>
-          <div className="row">
-            <button className="button secondary" type="button" onClick={onPdf}>
-              Download PDF
-            </button>
-            <button className="button secondary" type="button" onClick={onBack}>
-              Edit information
-            </button>
-          </div>
-          <p className="muted utility-fineprint">
-            If anything on the PDF is incorrect, edit your information before
-            signing or submitting.
-          </p>
-          {pdfStatus ? <p className="muted">{pdfStatus}</p> : null}
-        </section>
-        <section className="utility-result__section">
-          <h2>Mail instead</h2>
-          <p className="muted">
-            If you do not want to use automated fax, download the PDF above,
-            print it, sign it, and mail the signed application to LADWP.
-          </p>
-          <address className="muted utility-mail-address">
-            {LADWP_EZ_SAVE_WORKFLOW.mailAddress.map((line) => (
-              <span key={line}>{line}</span>
-            ))}
-          </address>
+        <section className="ez-submit-card">
+          <div className="ez-submit-card__heading"><span aria-hidden="true"><Download size={19} /></span><div><h2>Download the completed PDF</h2><p>Save it, fax it yourself, or print and mail it.</p></div></div>
+          <button className="ez-button ez-button--secondary ez-button--wide" type="button" onClick={onPdf}>Download PDF</button>
+          {pdfStatus ? <p className="ez-inline-status" aria-live="polite">{pdfStatus}</p> : null}
+          <details className="ez-mail-details"><summary>Mail instead</summary><p>Print and sign the downloaded application, then mail it to:</p><address>{LADWP_EZ_SAVE_WORKFLOW.mailAddress.map((line) => <span key={line}>{line}</span>)}</address></details>
         </section>
       </div>
-      {submissionNotice ? (
-        <div
-          className={`submission-notice submission-notice--${submissionNotice.tone}`}
-          role="status"
-        >
-          <strong>{submissionNotice.title}</strong>
-          <span>{submissionNotice.message}</span>
-        </div>
-      ) : null}
-      {receiptUrl ? (
-        <a className="button secondary utility-receipt-link" href={receiptUrl}>
-          View receipt
-        </a>
-      ) : null}
-      <div className="row">
-        <button className="button secondary" type="button" onClick={onBack}>
-          Edit information
-        </button>
-      </div>
+      <details className="ez-admin-options"><summary>Administrative test options</summary><label className="ez-check"><input checked={adminFaxTest} type="checkbox" onChange={(event) => setAdminFaxTest(event.currentTarget.checked)} /><span>Send this fax to the test number {ADMIN_TEST_FAX_NUMBER}</span></label></details>
+      <div className="ez-form-actions"><button className="ez-button ez-button--secondary" type="button" onClick={onBack}>Back</button></div>
     </section>
   );
 }

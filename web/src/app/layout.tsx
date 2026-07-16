@@ -1,12 +1,18 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-
+import localFont from "next/font/local";
 import "./globals.css";
 
+const geist = localFont({
+  src: "../../node_modules/next/dist/next-devtools/server/font/geist-latin.woff2",
+  display: "swap",
+  variable: "--font-geist",
+  weight: "100 900",
+});
+
 export const metadata: Metadata = {
-  title: "LADWP EZ-SAVE Application Helper",
+  title: "Buffalo Billsaver | LADWP EZ-SAVE Application Helper",
   description:
-    "Check LADWP EZ-SAVE eligibility and prepare a filled application PDF.",
+    "Check your likely LADWP EZ-SAVE eligibility, prepare the application, and automate the fax submission or download the PDF.",
 };
 
 export default function RootLayout({
@@ -16,18 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>
-        <div className="app-frame">
-          <div className="app-frame__rays" aria-hidden />
-          <div className="app-frame__stripe" aria-hidden />
-          <nav className="app-top-nav" aria-label="Site">
-            <Link className="button secondary app-top-nav__home" href="/">
-              home
-            </Link>
-          </nav>
-          {children}
-        </div>
-      </body>
+      <body className={geist.variable}>{children}</body>
     </html>
   );
 }

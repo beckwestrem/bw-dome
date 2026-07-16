@@ -1,31 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Check, Clock3, TriangleAlert } from "lucide-react";
 
+import { EzBrand } from "@/app/components/EzUi";
 import { getEzSaveSubmissionByReceiptToken } from "@/programs/ladwp_ez_save/submission-store";
 
-function statusLabel(status: string) {
+function receiptContent(status: string) {
   switch (status) {
     case "fax_sent":
-      return "Fax sent";
+      return { tone: "success", title: "Application faxed to LADWP", description: "Your signed application was transmitted to LADWP." };
+    case "fax_failed":
+      return { tone: "error", title: "Fax needs attention", description: "The fax was not completed. Keep this receipt and try again." };
     case "fax_pending":
-      return "Fax pending";
-    case "fax_failed":
-      return "Fax needs attention";
-    case "signed":
-      return "Signed";
+      return { tone: "pending", title: "Fax is processing", description: "Your signed application is being transmitted." };
     default:
-      return status;
-  }
-}
-
-function statusTone(status: string) {
-  switch (status) {
-    case "fax_sent":
-      return "success";
-    case "fax_failed":
-      return "error";
-    default:
-      return "pending";
+      return { tone: "pending", title: "Application signed", description: "Your signed application record has been created." };
   }
 }
 
@@ -36,73 +25,48 @@ export default async function EzSaveReceiptPage({
 }) {
   const { token } = await params;
   const submission = await getEzSaveSubmissionByReceiptToken(token);
-
   if (!submission) notFound();
 
+  const content = receiptContent(submission.status);
+  const date = submission.signedAt
+    ? new Date(submission.signedAt).toLocaleString("en-US", { dateStyle: "long", timeStyle: "short" })
+    : "Not recorded";
+
   return (
-    <main className="container">
-      <section className="utility-result">
-        <div className="utility-result__header">
-          <p className="kicker">EZ-SAVE receipt</p>
-          <h1>{statusLabel(submission.status)}</h1>
-          <p className="muted lead">
-            Keep this page for your records. It does not require an account.
-          </p>
-          <div
-            className={`submission-notice submission-notice--${statusTone(
-              submission.status,
-            )}`}
-          >
-            <strong>{statusLabel(submission.status)}</strong>
-            <span>
-              {submission.faxStatusDetail ??
-                "Submission status has been recorded for this application."}
-            </span>
+    <div className="ez-shell ez-receipt-shell">
+      <header className="ez-app-nav"><div className="ez-container"><EzBrand /><span>Submission receipt</span></div></header>
+      <main className="ez-receipt-main">
+        <article className={`ez-receipt ez-receipt--${content.tone}`}>
+          <div className="ez-receipt__icon" aria-hidden="true">{content.tone === "success" ? <Check size={27} /> : content.tone === "error" ? <TriangleAlert size={25} /> : <Clock3 size={25} />}</div>
+          <p className="ez-kicker">EZ-SAVE receipt</p>
+          <h1>{content.title}</h1>
+          <p className="ez-receipt__lead">{content.description}</p>
+          <p className="ez-receipt__disclaimer">This receipt confirms transmission. It does not mean LADWP has approved the application.</p>
+
+          <dl className="ez-receipt__summary">
+            <div><dt>Confirmation ID</dt><dd className="ez-mono">{submission.faxConfirmationId ?? "Pending"}</dd></div>
+            <div><dt>Destination</dt><dd>{submission.faxNumber}</dd></div>
+            <div><dt>Date and time</dt><dd>{date}</dd></div>
+            <div><dt>Signer</dt><dd>{submission.signerName ?? "Not recorded"}</dd></div>
+          </dl>
+
+          {submission.faxStatusDetail ? <p className="ez-receipt__status">{submission.faxStatusDetail}</p> : null}
+
+          <details className="ez-technical-details">
+            <summary>Technical receipt details</summary>
+            <dl>
+              <div><dt>Receipt token</dt><dd className="ez-mono">{submission.receiptToken}</dd></div>
+              <div><dt>Consent version</dt><dd className="ez-mono">{submission.consentVersion}</dd></div>
+              {submission.pdfSha256 ? <div><dt>PDF hash</dt><dd className="ez-mono ez-break-all">{submission.pdfSha256}</dd></div> : null}
+            </dl>
+          </details>
+
+          <div className="ez-receipt__actions">
+            <Link className="ez-button" href="/utility-discounts">Start another application</Link>
+            <Link className="ez-button ez-button--secondary" href="/">Back to Buffalo Billsaver</Link>
           </div>
-        </div>
-
-        <div className="utility-result__grid">
-          <section className="utility-result__section">
-            <h2>Delivery</h2>
-            <p className="muted">Fax: {submission.faxNumber}</p>
-            {submission.faxConfirmationId ? (
-              <p className="muted">Confirmation: {submission.faxConfirmationId}</p>
-            ) : null}
-            {submission.faxStatusDetail ? (
-              <p className="muted">{submission.faxStatusDetail}</p>
-            ) : null}
-          </section>
-
-          <section className="utility-result__section">
-            <h2>Signature</h2>
-            <p className="muted">Signer: {submission.signerName ?? "Not recorded"}</p>
-            <p className="muted">
-              Signed:{" "}
-              {submission.signedAt
-                ? new Date(submission.signedAt).toLocaleString()
-                : "Not recorded"}
-            </p>
-            <p className="muted">Consent version: {submission.consentVersion}</p>
-          </section>
-
-          <section className="utility-result__section">
-            <h2>Record</h2>
-            <p className="muted">Receipt token: {submission.receiptToken}</p>
-            {submission.pdfSha256 ? (
-              <p className="muted utility-hash">PDF hash: {submission.pdfSha256}</p>
-            ) : null}
-          </section>
-        </div>
-
-        <div className="row">
-          <Link className="button secondary" href="/">
-            Home
-          </Link>
-          <Link className="button secondary" href="/utility-discounts">
-            Start another application
-          </Link>
-        </div>
-      </section>
-    </main>
+        </article>
+      </main>
+    </div>
   );
 }

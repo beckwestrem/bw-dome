@@ -8,7 +8,7 @@ import type {
 
 export const LADWP_EZ_SAVE_THRESHOLDS = {
   effectiveDate: "2025-07-01",
-  lastVerifiedDate: null,
+  lastVerifiedDate: "2026-07-15",
   sourceUrl:
     "https://www.ladwp.com/residential-services/assistance-programs/ez-save-program",
   annualReviewNote:
